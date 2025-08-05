@@ -1,0 +1,6 @@
+projectKey=prelevements_front
+serverUrl=http://localhost:9000
+serverVersion=25.7.0.110598
+dashboardUrl=http://localhost:9000/dashboard?id=prelevements_front
+ceTaskId=0ac2fc64-8678-4c7a-8541-df06ed163f6b
+ceTaskUrl=http://localhost:9000/api/ce/task?id=0ac2fc64-8678-4c7a-8541-df06ed163f6b
