@@ -43,19 +43,26 @@ pipeline {
             }
         }
 
-    stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv('My SonarQube Server') {
-            script {
-                docker.image('sonarsource/sonar-scanner-cli:latest').inside {
-                    sh "sonar-scanner -Dsonar.projectKey=prelevements_front -Dsonar.login=${SONAR_TOKEN}"
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('My SonarQube Server') {
+                    script {
+                        docker.image('sonarsource/sonar-scanner-cli:latest').inside {
+                            sh '''
+                              sonar-scanner \
+                                -Dsonar.projectKey=prelevements_front \
+                                -Dsonar.sources=src \
+                                -Dsonar.tests=src \
+                                -Dsonar.test.inclusions=**/*.test.js,**/*.spec.js \
+                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                -Dsonar.login=${SONAR_TOKEN} \
+                                -Dsonar.host.url=http://host.docker.internal:9000
+                            '''
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
-
 
         stage('Docker Build & Push') {
             steps {
