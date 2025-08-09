@@ -15,25 +15,30 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                // Run inside official Node 18 container
-                docker.image('node:18-alpine').inside {
-                    sh 'npm install'
+                script {
+                    docker.image('node:18-alpine').inside {
+                        sh 'npm install'
+                    }
                 }
             }
         }
 
         stage('Test') {
             steps {
-                docker.image('node:18-alpine').inside {
-                    sh 'npm test -- --coverage'
+                script {
+                    docker.image('node:18-alpine').inside {
+                        sh 'npm test -- --coverage'
+                    }
                 }
             }
         }
 
         stage('Build') {
             steps {
-                docker.image('node:18-alpine').inside {
-                    sh 'npm run build'
+                script {
+                    docker.image('node:18-alpine').inside {
+                        sh 'npm run build'
+                    }
                 }
             }
         }
@@ -41,8 +46,10 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('My SonarQube Server') {
-                    docker.image('node:18-alpine').inside {
-                        sh "npx sonar-scanner -Dsonar.projectKey=prelevements_front -Dsonar.login=${SONAR_TOKEN}"
+                    script {
+                        docker.image('node:18-alpine').inside {
+                            sh "npx sonar-scanner -Dsonar.projectKey=prelevements_front -Dsonar.login=${SONAR_TOKEN}"
+                        }
                     }
                 }
             }
