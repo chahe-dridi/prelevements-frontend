@@ -8,35 +8,42 @@ pipeline {
 
     stages {
         stage('Checkout') {
-        steps {
-            git branch: 'main', url: 'https://github.com/chahe-dridi/prelevements-frontend.git'
+            steps {
+                git branch: 'main', url: 'https://github.com/chahe-dridi/prelevements-frontend.git'
+            }
         }
-    }
-
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                // Run inside official Node 18 container
+                docker.image('node:18-alpine').inside {
+                    sh 'npm install'
+                }
             }
         }
 
         stage('Test') {
             steps {
-                // Run frontend tests here
-                sh 'npm test -- --coverage'
+                docker.image('node:18-alpine').inside {
+                    sh 'npm test -- --coverage'
+                }
             }
         }
 
         stage('Build') {
             steps {
-                sh 'npm run build'
+                docker.image('node:18-alpine').inside {
+                    sh 'npm run build'
+                }
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('My SonarQube Server') {
-                    sh "npx sonar-scanner -Dsonar.projectKey=prelevements_front -Dsonar.login=${SONAR_TOKEN}"
+                    docker.image('node:18-alpine').inside {
+                        sh "npx sonar-scanner -Dsonar.projectKey=prelevements_front -Dsonar.login=${SONAR_TOKEN}"
+                    }
                 }
             }
         }
