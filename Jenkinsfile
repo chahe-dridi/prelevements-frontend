@@ -43,15 +43,18 @@ pipeline {
             }
         }
 
-       stage('SonarQube Analysis') {
+    stage('SonarQube Analysis') {
     steps {
         withSonarQubeEnv('My SonarQube Server') {
-            docker.image('sonarsource/sonar-scanner-cli:latest').inside {
-                sh "sonar-scanner -Dsonar.projectKey=prelevements_front -Dsonar.login=${SONAR_TOKEN}"
+            script {
+                docker.image('sonarsource/sonar-scanner-cli:latest').inside {
+                    sh "sonar-scanner -Dsonar.projectKey=prelevements_front -Dsonar.login=${SONAR_TOKEN}"
+                }
             }
         }
     }
 }
+
 
 
         stage('Docker Build & Push') {
