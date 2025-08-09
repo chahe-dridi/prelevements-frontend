@@ -8,10 +8,11 @@ pipeline {
 
     stages {
         stage('Checkout') {
-            steps {
-                git 'https://github.com/chahe-dridi/prelevements-frontend.git'
-            }
+        steps {
+            git branch: 'main', url: 'https://github.com/chahe-dridi/prelevements-frontend.git'
         }
+    }
+
 
         stage('Install Dependencies') {
             steps {
