@@ -26,7 +26,7 @@ function Login() {
             }
 
             const decoded = jwtDecode(token);
-            const role = decoded.role || "Utilisateur";
+            const role = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || decoded.role || "Utilisateur";
             const userEmail = decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || decoded.email || "";
 
             setUser(role, userEmail);
