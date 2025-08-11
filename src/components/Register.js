@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { registerUser } from '../services/authService';
 
 function Register() {
@@ -7,12 +8,19 @@ function Register() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [message, setMessage] = useState("");
+    const navigate = useNavigate();
 
     const handleRegister = async (e) => {
         e.preventDefault();
         try {
             await registerUser(nom, prenom, email, password);
-            setMessage("✅ Registered successfully!");
+            setMessage("✅ Registered successfully! Redirecting to login...");
+
+            // Redirect after short delay and pass email/password in state
+            setTimeout(() => {
+                navigate("/login", { state: { email, password } });
+            }, 1500);
+
         } catch (err) {
             setMessage("❌ " + (err.response?.data || "Error occurred"));
         }
