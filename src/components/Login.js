@@ -13,37 +13,39 @@ function Login() {
     const [password, setPassword] = useState(location.state?.password || "");
     const [message, setMessage] = useState("");
 
-    const handleLogin = async (e) => {
-        e.preventDefault();
-        setMessage("");
-        try {
-            const data = await loginUser(email, password);
+ const handleLogin = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    try {
+        const data = await loginUser(email, password);
 
-            const token = data.token;
-            if (!token) {
-                setMessage("❌ No token received");
-                return;
-            }
-
-            const decoded = jwtDecode(token);
-            const role = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || decoded.role || "Utilisateur";
-            const userEmail = decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || decoded.email || "";
-
-            setUser(role, userEmail);
-
-            setMessage("✅ Logged in! Redirecting...");
-
-            if (role === "SuperAdmin" || role === "Admin") {
-                navigate('/admin/dashboard');
-            } else {
-                navigate('/');
-            }
-
-        } catch (err) {
-            console.error("Login error:", err);
-            setMessage("❌ " + (err.response?.data || err.message || "Error occurred"));
+        const token = data.token;
+        if (!token) {
+            setMessage("❌ No token received");
+            return;
         }
-    };
+
+        const decoded = jwtDecode(token);
+        const role = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || decoded.role || "Utilisateur";
+        const userEmail = decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || decoded.email || "";
+
+        // Pass the token here!
+        setUser(role, userEmail, token);
+
+        setMessage("✅ Logged in! Redirecting...");
+
+        if (role === "SuperAdmin" || role === "Admin") {
+            navigate('/admin/dashboard');
+        } else {
+            navigate('/');
+        }
+
+    } catch (err) {
+        console.error("Login error:", err);
+        setMessage("❌ " + (err.response?.data || err.message || "Error occurred"));
+    }
+};
+
 
     return (
         <div>

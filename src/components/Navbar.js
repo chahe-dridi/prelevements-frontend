@@ -100,11 +100,22 @@ function Navbar() {
       color: "#fff",
       gap: "10px",
     }}>
+      {
+        
+        (userRole === 'SuperAdmin' && (
+          <Link to="/admin/users" style={{ color: '#fff', marginLeft: '15px' }}>
+            Manage Users
+          </Link>
+        ))
+      }
+
       {(userRole === "SuperAdmin" || userRole === "Admin") ? (
         <>
           <Link style={{ color: "#fff", fontWeight: "bold" }} to="/admin/dashboard">Admin Dashboard</Link>
           {userRole && loggedInLinks}
         </>
+
+
       ) : (
         <>
           <Link style={{ color: "#fff", fontWeight: "bold" }} to="/">Home</Link>

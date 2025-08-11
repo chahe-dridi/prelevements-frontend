@@ -5,7 +5,7 @@ import Home from './components/Home';
 import Register from './components/Register';
 import Login from './components/Login';
 import AdminDashboard from './components/AdminDashboard';
-
+import UsersAdmin from './components/UsersAdmin';
 
 function App() {
     return (
@@ -17,6 +17,7 @@ function App() {
                     <Route path="/register" element={<Register />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                    <Route path="/admin/users" element={<UsersAdmin />} />
                 </Routes>
             </div>
         </Router>
