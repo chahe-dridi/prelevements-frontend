@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import '../assets/Login.css';
 
-function Login() {
+const Login = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { setUser } = useContext(AuthContext);
@@ -89,6 +89,6 @@ function Login() {
             </div>
         </div>
     );
-}
+};
 
 export default Login;

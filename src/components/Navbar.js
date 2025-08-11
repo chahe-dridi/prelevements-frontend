@@ -38,12 +38,15 @@ function Navbar() {
             {dropdownOpen && (
                 <div className="dropdown-menu">
                   
-                    <div className="dropdown-profile">
-                    <Link to="/profile" onClick={() => setDropdownOpen(false)}>
+                     <button
+                        onClick={() => {
+                            setDropdownOpen(false);
+                            navigate('/profile');
+                        }}
+                        className="dropdown-logout"
+                    >
                         Profile
-                    </Link>
-                    </div>
-
+                    </button>
                     <button
                         onClick={handleLogout}
                         className="dropdown-logout"
@@ -56,40 +59,39 @@ function Navbar() {
     );
 
     return (
-        <nav className={`navbar ${(userRole === "SuperAdmin" || userRole === "Admin") ? 'admin' : 'user'}`}>
-            {userRole === 'SuperAdmin' && (
-                <Link to="/admin/users" className="navbar-link manage-users">
-                    Manage Users
+    <nav className={`navbar ${(userRole === "SuperAdmin" || userRole === "Admin") ? 'admin' : 'user'}`}>
+        {(userRole === "SuperAdmin" || userRole === "Admin") ? (
+            <>
+                <Link className="navbar-link bold" to="/admin/dashboard">
+                    Admin Dashboard
                 </Link>
-            )}
-
-            {(userRole === "SuperAdmin" || userRole === "Admin") ? (
-                <>
-                    <Link className="navbar-link bold" to="/admin/dashboard">
-                        Admin Dashboard
+                {userRole === 'SuperAdmin' && (
+                    <Link to="/admin/users" className="navbar-link manage-users">
+                        Manage Users
                     </Link>
-                    {userRole && loggedInLinks}
-                </>
-            ) : (
-                <>
-                    <Link className="navbar-link bold" to="/">
-                        Home
-                    </Link>
-                    {!userRole && (
-                        <>
-                            <Link className="navbar-link" to="/register">
-                                Register
-                            </Link>
-                            <Link className="navbar-link" to="/login">
-                                Login
-                            </Link>
-                        </>
-                    )}
-                    {userRole && loggedInLinks}
-                </>
-            )}
-        </nav>
-    );
+                )}
+                {userRole && loggedInLinks}
+            </>
+        ) : (
+            <>
+                <Link className="navbar-link bold" to="/">
+                    Home
+                </Link>
+                {!userRole && (
+                    <>
+                        <Link className="navbar-link" to="/register">
+                            Register
+                        </Link>
+                        <Link className="navbar-link" to="/login">
+                            Login
+                        </Link>
+                    </>
+                )}
+                {userRole && loggedInLinks}
+            </>
+        )}
+    </nav>
+);
 }
 
 export default Navbar;
