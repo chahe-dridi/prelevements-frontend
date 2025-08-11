@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 function UsersAdmin() {
-  const { token } = useContext(AuthContext); // JWT token
+  const { token, userRole } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -17,10 +19,16 @@ function UsersAdmin() {
       return;
     }
 
+    // Redirect if not SuperAdmin
+    if (userRole !== 'SuperAdmin') {
+      navigate('/404', { replace: true });
+      return;
+    }
+
     setLoading(true);
     setError("");
 
-    fetch('https://localhost:7101/api/Users', {  // Use full URL or ensure proxy config
+    fetch('https://localhost:7101/api/Users', {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -37,7 +45,7 @@ function UsersAdmin() {
         setError(err.message);
         setLoading(false);
       });
-  }, [token]);
+  }, [token, userRole, navigate]);
 
   // Role coming from backend might be an integer enum — convert it to string
   // If your backend sends string role names, skip this
@@ -50,39 +58,40 @@ function UsersAdmin() {
     return role; // assume it's already string
   };
 
-  const handleRoleChange = async (userId, newRole) => {
-    setUpdatingUserId(userId);
-    setError("");
+ const handleRoleChange = async (userId, newRole) => {
+  setUpdatingUserId(userId);
+  setError("");
 
-    // Optional: convert role string back to enum number if backend expects numbers
-    // e.g., const roleEnumValue = roles.indexOf(newRole);
+  // Convert role string to enum number
+  const roleEnumValue = roles.indexOf(newRole);
 
-    try {
-      const response = await fetch('https://localhost:7101/api/Users/role', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ userId, role: newRole }), // or role: roleEnumValue
-      });
+  try {
+    const response = await fetch('https://localhost:7101/api/Users/role', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ userId, role: roleEnumValue }),
+    });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || 'Failed to update role');
-      }
-
-      setUsers(prev =>
-        prev.map(u =>
-          u.id === userId ? { ...u, role: newRole } : u
-        )
-      );
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setUpdatingUserId(null);
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || 'Failed to update role');
     }
-  };
+
+    setUsers(prev =>
+      prev.map(u =>
+        u.id === userId ? { ...u, role: roleEnumValue } : u
+      )
+    );
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setUpdatingUserId(null);
+  }
+};
+
 
   if (loading) return <p>Loading users...</p>;
   if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
@@ -111,17 +120,18 @@ function UsersAdmin() {
                 <td>{email}</td>
                 <td>{convertRoleToString(role)}</td>
                 <td>
-                  <select
-                    value={convertRoleToString(role)}
-                    onChange={e => handleRoleChange(id, e.target.value)}
-                    disabled={updatingUserId === id}
-                  >
-                    {roles.map(r => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
+                <select
+                value={convertRoleToString(role)}
+                onChange={e => handleRoleChange(id, e.target.value)}
+                disabled={updatingUserId === id || userRole !== 'SuperAdmin'}  
+                >
+                {roles.map(r => (
+                    <option key={r} value={r}>
+                    {r}
+                    </option>
+                ))}
+                </select>
+
                   {updatingUserId === id && <span> Updating...</span>}
                 </td>
               </tr>
