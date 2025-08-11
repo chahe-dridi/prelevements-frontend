@@ -3,6 +3,7 @@ import { loginUser } from '../services/authService';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
+import '../assets/Login.css';
 
 function Login() {
     const location = useLocation();
@@ -45,29 +46,16 @@ function Login() {
         }
     };
 
+    // Detect mobile screen
+    const isMobile = window.innerWidth <= 480;
+
     return (
-        <div style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "linear-gradient(135deg, #e0e7ff 0%, #f3f4f6 100%)"
-        }}>
-            <div style={{
-                background: "#fff",
-                padding: "2.5rem 2rem",
-                borderRadius: "16px",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-                minWidth: "340px",
-                maxWidth: "90vw"
-            }}>
-                <h2 style={{
-                    textAlign: "center",
-                    marginBottom: "1.5rem",
-                    color: "#3730a3",
-                    letterSpacing: "1px"
-                }}>Login</h2>
-                <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div className="login-container">
+            <div className={`login-card ${isMobile ? 'mobile' : ''}`}>
+                <h2 className={`login-title ${isMobile ? 'mobile' : ''}`}>
+                    Login
+                </h2>
+                <form onSubmit={handleLogin} className="login-form">
                     <input
                         type="email"
                         placeholder="Email"
@@ -75,14 +63,7 @@ function Login() {
                         onChange={(e) => setEmail(e.target.value)}
                         autoComplete="username"
                         required
-                        style={{
-                            padding: "0.75rem 1rem",
-                            border: "1px solid #c7d2fe",
-                            borderRadius: "8px",
-                            fontSize: "1rem",
-                            outline: "none",
-                            transition: "border 0.2s",
-                        }}
+                        className={`login-input ${isMobile ? 'mobile' : ''}`}
                     />
                     <input
                         type="password"
@@ -91,35 +72,20 @@ function Login() {
                         onChange={(e) => setPassword(e.target.value)}
                         autoComplete="current-password"
                         required
-                        style={{
-                            padding: "0.75rem 1rem",
-                            border: "1px solid #c7d2fe",
-                            borderRadius: "8px",
-                            fontSize: "1rem",
-                            outline: "none",
-                            transition: "border 0.2s",
-                        }}
+                        className={`login-input ${isMobile ? 'mobile' : ''}`}
                     />
-                    <button type="submit" style={{
-                        padding: "0.75rem 1rem",
-                        background: "linear-gradient(90deg, #6366f1 0%, #818cf8 100%)",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontWeight: "bold",
-                        fontSize: "1rem",
-                        cursor: "pointer",
-                        transition: "background 0.2s"
-                    }}>
+                    <button 
+                        type="submit"
+                        className={`login-button ${isMobile ? 'mobile' : ''}`}
+                    >
                         Login
                     </button>
                 </form>
-                <p style={{
-                    marginTop: "1rem",
-                    textAlign: "center",
-                    color: message.startsWith("✅") ? "#16a34a" : "#dc2626",
-                    minHeight: "1.5em"
-                }}>{message}</p>
+                <p className={`login-message ${isMobile ? 'mobile' : ''} ${
+                    message.startsWith("✅") ? 'success' : message ? 'error' : ''
+                }`}>
+                    {message}
+                </p>
             </div>
         </div>
     );

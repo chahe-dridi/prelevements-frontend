@@ -9,6 +9,8 @@ function UsersAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingUserId, setUpdatingUserId] = useState(null);
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editForm, setEditForm] = useState({ nom: "", prenom: "", email: "", role: "" });
 
   const roles = ['SuperAdmin', 'Admin', 'Utilisateur'];
 
@@ -19,7 +21,6 @@ function UsersAdmin() {
       return;
     }
 
-    // Redirect if not SuperAdmin
     if (userRole !== 'SuperAdmin') {
       navigate('/404', { replace: true });
       return;
@@ -47,51 +48,101 @@ function UsersAdmin() {
       });
   }, [token, userRole, navigate]);
 
-  // Role coming from backend might be an integer enum — convert it to string
-  // If your backend sends string role names, skip this
   const convertRoleToString = (role) => {
-    // Example conversion, adjust as per your backend enum values:
-    // SuperAdmin = 0, Admin = 1, Utilisateur = 2
     if (typeof role === "number") {
       return roles[role] || "Utilisateur";
     }
-    return role; // assume it's already string
+    return role;
   };
 
- const handleRoleChange = async (userId, newRole) => {
-  setUpdatingUserId(userId);
-  setError("");
+  const handleRoleChange = async (userId, newRole) => {
+    setUpdatingUserId(userId);
+    setError("");
 
-  // Convert role string to enum number
-  const roleEnumValue = roles.indexOf(newRole);
+    const roleEnumValue = roles.indexOf(newRole);
 
-  try {
-    const response = await fetch('https://localhost:7101/api/Users/role', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ userId, role: roleEnumValue }),
-    });
+    try {
+      const response = await fetch('https://localhost:7101/api/Users/role', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId, role: roleEnumValue }),
+      });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(errText || 'Failed to update role');
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || 'Failed to update role');
+      }
+
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === userId ? { ...u, role: roleEnumValue } : u
+        )
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdatingUserId(null);
     }
+  };
 
-    setUsers(prev =>
-      prev.map(u =>
-        u.id === userId ? { ...u, role: roleEnumValue } : u
-      )
-    );
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setUpdatingUserId(null);
-  }
-};
+  const startEditing = (user) => {
+    setEditingUserId(user.id);
+    setEditForm({
+      nom: user.nom,
+      prenom: user.prenom,
+      email: user.email,
+      role: convertRoleToString(user.role)
+    });
+  };
 
+  const cancelEditing = () => {
+    setEditingUserId(null);
+    setEditForm({ nom: "", prenom: "", email: "", role: "" });
+  };
+
+  const saveUser = async (userId) => {
+    setUpdatingUserId(userId);
+    setError("");
+
+    const roleEnumValue = roles.indexOf(editForm.role);
+
+    try {
+      const response = await fetch(`https://localhost:7101/api/Users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nom: editForm.nom,
+          prenom: editForm.prenom,
+          email: editForm.email,
+          role: roleEnumValue
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || 'Failed to update user');
+      }
+
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === userId
+            ? { ...u, ...editForm, role: roleEnumValue }
+            : u
+        )
+      );
+      cancelEditing();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
 
   if (loading) return <p>Loading users...</p>;
   if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
@@ -106,34 +157,73 @@ function UsersAdmin() {
           <thead>
             <tr>
               <th>Nom</th>
-              <th>Prenom</th>
+              <th>Prénom</th>
               <th>Email</th>
               <th>Role</th>
-              <th>Change Role</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {users.map(({ id, nom, prenom, email, role }) => (
-              <tr key={id}>
-                <td>{nom}</td>
-                <td>{prenom}</td>
-                <td>{email}</td>
-                <td>{convertRoleToString(role)}</td>
-                <td>
-                <select
-                value={convertRoleToString(role)}
-                onChange={e => handleRoleChange(id, e.target.value)}
-                disabled={updatingUserId === id || userRole !== 'SuperAdmin'}  
-                >
-                {roles.map(r => (
-                    <option key={r} value={r}>
-                    {r}
-                    </option>
-                ))}
-                </select>
-
-                  {updatingUserId === id && <span> Updating...</span>}
-                </td>
+            {users.map(user => (
+              <tr key={user.id}>
+                {editingUserId === user.id ? (
+                  <>
+                    <td>
+                      <input
+                        type="text"
+                        value={editForm.nom}
+                        onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        value={editForm.prenom}
+                        onChange={(e) => setEditForm({ ...editForm, prenom: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        value={editForm.role}
+                        onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                      >
+                        {roles.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <button onClick={() => saveUser(user.id)} disabled={updatingUserId === user.id}>Save</button>
+                      <button onClick={cancelEditing}>Cancel</button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>{user.nom}</td>
+                    <td>{user.prenom}</td>
+                    <td>{user.email}</td>
+                    <td>{convertRoleToString(user.role)}</td>
+                    <td>
+                      <button onClick={() => startEditing(user)}>Edit</button>
+                      <select
+                        value={convertRoleToString(user.role)}
+                        onChange={e => handleRoleChange(user.id, e.target.value)}
+                        disabled={updatingUserId === user.id || userRole !== 'SuperAdmin'}
+                      >
+                        {roles.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { registerUser } from '../services/authService';
+import '../assets/Register.css';
 
 function Register() {
     const [nom, setNom] = useState("");
@@ -16,7 +17,6 @@ function Register() {
             await registerUser(nom, prenom, email, password);
             setMessage("✅ Registered successfully! Redirecting to login...");
 
-            // Redirect after short delay and pass email/password in state
             setTimeout(() => {
                 navigate("/login", { state: { email, password } });
             }, 1500);
@@ -26,17 +26,65 @@ function Register() {
         }
     };
 
+    // Detect mobile screen
+    const isMobile = window.innerWidth <= 480;
+
     return (
-        <div>
-            <h2>Register</h2>
-            <form onSubmit={handleRegister}>
-                <input placeholder="Nom" value={nom} onChange={(e) => setNom(e.target.value)} />
-                <input placeholder="Prenom" value={prenom} onChange={(e) => setPrenom(e.target.value)} />
-                <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                <button type="submit">Register</button>
-            </form>
-            <p>{message}</p>
+        <div className="register-container">
+            <div className={`register-card ${isMobile ? 'mobile' : ''}`}>
+                <h2 className={`register-title ${isMobile ? 'mobile' : ''}`}>
+                    Créer un compte
+                </h2>
+                <form onSubmit={handleRegister} className="register-form">
+                    <input
+                        placeholder="Nom"
+                        value={nom}
+                        onChange={(e) => setNom(e.target.value)}
+                        className={`register-input ${isMobile ? 'mobile' : ''}`}
+                        required
+                    />
+                    <input
+                        placeholder="Prénom"
+                        value={prenom}
+                        onChange={(e) => setPrenom(e.target.value)}
+                        className={`register-input ${isMobile ? 'mobile' : ''}`}
+                        required
+                    />
+                    <input
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={`register-input ${isMobile ? 'mobile' : ''}`}
+                        required
+                    />
+                    <input
+                        type="password"
+                        placeholder="Mot de passe"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className={`register-input ${isMobile ? 'mobile' : ''}`}
+                        required
+                    />
+                    <button 
+                        type="submit"
+                        className={`register-button ${isMobile ? 'mobile' : ''}`}
+                    >
+                        S'inscrire
+                    </button>
+                </form>
+                <p className={`register-message ${isMobile ? 'mobile' : ''} ${
+                    message.startsWith("✅") ? 'success' : message ? 'error' : ''
+                }`}>
+                    {message}
+                </p>
+                <div className={`register-link-section ${isMobile ? 'mobile' : ''}`}>
+                    <span className="register-link-text">Déjà inscrit ? </span>
+                    <a href="/login" className="register-link">
+                        Se connecter
+                    </a>
+                </div>
+            </div>
         </div>
     );
 }
