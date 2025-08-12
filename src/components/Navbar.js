@@ -62,10 +62,17 @@ function Navbar() {
     <nav className={`navbar ${(userRole === "SuperAdmin" || userRole === "Admin") ? 'admin' : 'user'}`}>
         {(userRole === "SuperAdmin" || userRole === "Admin") ? (
             <>
+                <Link className="navbar-link" to="/admin/home">Home</Link>
+
                 <Link className="navbar-link bold" to="/admin/dashboard">
                     Admin Dashboard
                 </Link>
-                {userRole === 'SuperAdmin' && (
+               
+                <Link className="navbar-link" to="/admin/demandes">Gestion des Demandes</Link>
+                 <Link className="navbar-link" to="/demandes">Faire une demande</Link>
+
+                 
+                    {userRole === 'SuperAdmin' && (
                     <Link to="/admin/users" className="navbar-link manage-users">
                         Manage Users
                     </Link>
@@ -90,6 +97,11 @@ function Navbar() {
                 {userRole && loggedInLinks}
             </>
         )}
+
+            {userRole === "Utilisateur" && (
+            <Link className="navbar-link" to="/demandes">Faire une demande</Link>
+            )}
+
     </nav>
 );
 }

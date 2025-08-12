@@ -8,7 +8,8 @@ import AdminDashboard from './components/AdminDashboard';
 import UsersAdmin from './components/UsersAdmin';
 import NotFound from './components/NotFound';
 import ProfilePage from "./pages/ProfilePage";
-
+import DemandePage from './pages/DemandePage';
+import AdminDemandesPage from './pages/AdminDemandesPage';
 
 
 
@@ -27,7 +28,8 @@ function App() {
                     <Route path="/admin/users" element={<UsersAdmin />} />
                     <Route path="/profile" element={<ProfilePage />} />
 
-
+                    <Route path="/demandes" element={<DemandePage />} />
+                    <Route path="/admin/demandes" element={<AdminDemandesPage />} />
 
                     <Route path="/404" element={<NotFound />} />
                     <Route path="*" element={<NotFound />} />
