@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useContext } from 'react'; 
 import { AuthContext } from '../context/AuthContext';
+import '../assets/DemandePage.css';
 
-function DemandePage() {
+const DemandePage = () => {
   const { token, userRole } = useContext(AuthContext);
 
   const [categories, setCategories] = useState([]);
@@ -13,9 +14,19 @@ function DemandePage() {
   const [newItem, setNewItem] = useState({ nom: '', prixUnitaire: '', categorieId: '' });
 
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success', 'error', 'info'
   const [loading, setLoading] = useState(false);
 
   const API_BASE_URL = 'https://localhost:7101'; // backend URL
+
+  const showMessage = (msg, type = 'info') => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => {
+      setMessage('');
+      setMessageType('');
+    }, 5000);
+  };
 
   // Load categories with their items
   const fetchCategories = async () => {
@@ -34,7 +45,7 @@ function DemandePage() {
       console.log('Categories data:', data);
       setCategories(data || []);
     } catch (err) {
-      setMessage(`Erreur chargement catégories: ${err.message}`);
+      showMessage(`Erreur chargement catégories: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -65,7 +76,7 @@ function DemandePage() {
 
   const handleSubmitDemande = async () => {
     if (!selectedCategoryId) {
-      setMessage('Veuillez choisir une catégorie.');
+      showMessage('Veuillez choisir une catégorie.', 'error');
       return;
     }
     const filteredItems = Object.entries(selectedItems)
@@ -76,7 +87,7 @@ function DemandePage() {
       }));
 
     if (filteredItems.length === 0) {
-      setMessage('Veuillez sélectionner au moins un item avec quantité.');
+      showMessage('Veuillez sélectionner au moins un item avec quantité.', 'error');
       return;
     }
 
@@ -89,7 +100,7 @@ function DemandePage() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          categorieId: selectedCategoryId, // No utilisateurId here
+          categorieId: selectedCategoryId,
           items: filteredItems,
         })
       });
@@ -97,11 +108,11 @@ function DemandePage() {
         const errorText = await res.text();
         throw new Error(errorText || 'Erreur lors de la création de la demande');
       }
-      setMessage('Demande créée avec succès.');
+      showMessage('✅ Demande créée avec succès!', 'success');
       setSelectedCategoryId('');
       setSelectedItems({});
     } catch (err) {
-      setMessage(`Erreur: ${err.message}`);
+      showMessage(`❌ Erreur: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -109,7 +120,7 @@ function DemandePage() {
 
   const handleAddCategory = async () => {
     if (!newCategory.nom.trim()) {
-      setMessage('Le nom de la catégorie est requis.');
+      showMessage('Le nom de la catégorie est requis.', 'error');
       return;
     }
     try {
@@ -126,11 +137,11 @@ function DemandePage() {
         const errText = await res.text();
         throw new Error(errText || 'Erreur lors de l\'ajout de la catégorie');
       }
-      setMessage('Catégorie ajoutée.');
+      showMessage('✅ Catégorie ajoutée avec succès!', 'success');
       setNewCategory({ nom: '', description: '' });
       await fetchCategories();
     } catch (err) {
-      setMessage(`Erreur: ${err.message}`);
+      showMessage(`❌ Erreur: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -138,7 +149,7 @@ function DemandePage() {
 
   const handleAddItem = async () => {
     if (!newItem.nom.trim() || !newItem.prixUnitaire || !newItem.categorieId) {
-      setMessage('Veuillez remplir tous les champs pour ajouter un item.');
+      showMessage('Veuillez remplir tous les champs pour ajouter un item.', 'error');
       return;
     }
     try {
@@ -152,113 +163,189 @@ function DemandePage() {
         body: JSON.stringify({
           nom: newItem.nom,
           prixUnitaire: parseFloat(newItem.prixUnitaire),
-          categorieId: newItem.categorieId,  // GUID string, no parseInt
+          categorieId: newItem.categorieId,
         })
       });
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(errText || 'Erreur lors de l\'ajout de l\'item');
       }
-      setMessage('Item ajouté.');
+      showMessage('✅ Item ajouté avec succès!', 'success');
       setNewItem({ nom: '', prixUnitaire: '', categorieId: '' });
       await fetchCategories();
     } catch (err) {
-      setMessage(`Erreur: ${err.message}`);
+      showMessage(`❌ Erreur: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <h2>Créer une nouvelle demande</h2>
-      {message && <p>{message}</p>}
-      {loading && <p>Chargement...</p>}
+    <div className="demande-container">
+      <div className="demande-header">
+        <h1 className="demande-title">Créer une nouvelle demande</h1>
+        <p className="demande-subtitle">Sélectionnez une catégorie et les items souhaités</p>
+      </div>
 
-      <label>Choisir une catégorie:</label>
-      <select
-        value={selectedCategoryId}
-        onChange={e => setSelectedCategoryId(e.target.value)}
-      >
-        <option value="">-- Sélectionner --</option>
-        {categories.map(cat => (
-          <option key={cat.id} value={cat.id}>{cat.nom}</option>
-        ))}
-      </select>
-
-      {items.length > 0 && (
-        <>
-          <h3>Items de la catégorie</h3>
-          {items.map(item => (
-            <div key={item.id}>
-              <label>
-                {item.nom} (Prix: {item.prixUnitaire}):
-                <input
-                  type="number"
-                  min="0"
-                  value={selectedItems[item.id] || ''}
-                  onChange={e => handleQuantityChange(item.id, e.target.value)}
-                />
-              </label>
-            </div>
-          ))}
-        </>
+      {message && (
+        <div className={`message ${messageType}`}>
+          {message}
+        </div>
       )}
 
-      <button onClick={handleSubmitDemande} disabled={loading}>
-        Soumettre la demande
-      </button>
+      {loading && <div className="loading-message">🔄 Chargement...</div>}
 
-      {(userRole === 'Admin' || userRole === 'SuperAdmin') && (
-        <>
-          <hr />
-          <h3>Ajouter une nouvelle catégorie</h3>
-          <input
-            type="text"
-            placeholder="Nom de la catégorie"
-            value={newCategory.nom}
-            onChange={e => setNewCategory({ ...newCategory, nom: e.target.value })}
-          />
-          <input
-            type="text"
-            placeholder="Description"
-            value={newCategory.description}
-            onChange={e => setNewCategory({ ...newCategory, description: e.target.value })}
-          />
-          <button onClick={handleAddCategory} disabled={loading}>
-            Ajouter Catégorie
-          </button>
-
-          <hr />
-          <h3>Ajouter un nouvel item</h3>
-          <input
-            type="text"
-            placeholder="Nom de l'item"
-            value={newItem.nom}
-            onChange={e => setNewItem({ ...newItem, nom: e.target.value })}
-          />
-          <input
-            type="number"
-            placeholder="Prix unitaire"
-            value={newItem.prixUnitaire}
-            onChange={e => setNewItem({ ...newItem, prixUnitaire: e.target.value })}
-          />
+      <div className={`form-section ${loading ? 'loading-overlay' : ''}`}>
+        <h2 className="section-title">Sélection de catégorie</h2>
+        
+        <div className="form-group">
+          <label className="form-label">Choisir une catégorie:</label>
           <select
-            value={newItem.categorieId}
-            onChange={e => setNewItem({ ...newItem, categorieId: e.target.value })}
+            className="form-select"
+            value={selectedCategoryId}
+            onChange={e => setSelectedCategoryId(e.target.value)}
+            disabled={loading}
           >
-            <option value="">-- Choisir catégorie --</option>
+            <option value="">-- Sélectionner une catégorie --</option>
             {categories.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.nom}</option>
             ))}
           </select>
-          <button onClick={handleAddItem} disabled={loading}>
-            Ajouter Item
-          </button>
+        </div>
+
+        {items.length > 0 && (
+          <div className="items-container">
+            <h3 className="items-title">Items disponibles</h3>
+            {items.map(item => (
+              <div key={item.id} className="item-row">
+                <div className="item-info">
+                  <div className="item-name">{item.nom}</div>
+                  <div className="item-price">Prix: {item.prixUnitaire}DT</div>
+                </div>
+                <div className="item-quantity">
+                  <label className="quantity-label">Quantité:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="quantity-input"
+                    value={selectedItems[item.id] || ''}
+                    onChange={e => handleQuantityChange(item.id, e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button 
+          className="btn btn-primary submit-button" 
+          onClick={handleSubmitDemande} 
+          disabled={loading || !selectedCategoryId}
+        >
+          {loading ? '⏳ Traitement...' : '📤 Soumettre la demande'}
+        </button>
+      </div>
+
+      {(userRole === 'Admin' || userRole === 'SuperAdmin') && (
+        <>
+          <hr className="divider" />
+          
+          <div className="form-section admin-section">
+            <h2 className="section-title">Ajouter une nouvelle catégorie</h2>
+            <div className="admin-form">
+              <div className="admin-form-row">
+                <div className="form-group">
+                  <label className="form-label">Nom de la catégorie</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Fournitures de bureau"
+                    value={newCategory.nom}
+                    onChange={e => setNewCategory({ ...newCategory, nom: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Description</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Description optionnelle"
+                    value={newCategory.description}
+                    onChange={e => setNewCategory({ ...newCategory, description: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+              <button 
+                className="btn btn-success" 
+                onClick={handleAddCategory} 
+                disabled={loading || !newCategory.nom.trim()}
+              >
+                {loading ? '⏳ Ajout...' : '➕ Ajouter Catégorie'}
+              </button>
+            </div>
+          </div>
+
+          <div className="form-section admin-section">
+            <h2 className="section-title">Ajouter un nouvel item</h2>
+            <div className="admin-form">
+              <div className="admin-form-row">
+                <div className="form-group">
+                  <label className="form-label">Nom de l'item</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Stylo bleu"
+                    value={newItem.nom}
+                    onChange={e => setNewItem({ ...newItem, nom: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Prix unitaire (DT)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="form-input"
+                    placeholder="0.00"
+                    value={newItem.prixUnitaire}
+                    onChange={e => setNewItem({ ...newItem, prixUnitaire: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+              <div className="admin-form-row single">
+                <div className="form-group">
+                  <label className="form-label">Catégorie</label>
+                  <select
+                    className="form-select"
+                    value={newItem.categorieId}
+                    onChange={e => setNewItem({ ...newItem, categorieId: e.target.value })}
+                    disabled={loading}
+                  >
+                    <option value="">-- Choisir une catégorie --</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.nom}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button 
+                className="btn btn-success" 
+                onClick={handleAddItem} 
+                disabled={loading || !newItem.nom.trim() || !newItem.prixUnitaire || !newItem.categorieId}
+              >
+                {loading ? '⏳ Ajout...' : '➕ Ajouter Item'}
+              </button>
+            </div>
+          </div>
         </>
       )}
     </div>
   );
-}
+};
 
 export default DemandePage;

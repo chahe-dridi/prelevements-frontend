@@ -20,10 +20,12 @@ export default function DemandeDetailsPage() {
     })
       .then(res => {
         if (!res.ok) throw new Error(`Erreur HTTP ${res.status}`);
+        
         return res.json();
       })
       .then(data => {
         setDemande(data);
+        console.log(data);
         setPaymentInfo({
           comptePaiement: data.paiement?.comptePaiement || "",
           montantEnLettres: data.paiement?.montantEnLettres || ""
@@ -91,28 +93,46 @@ export default function DemandeDetailsPage() {
   return (
     <div style={{ padding: "20px" }}>
       <h2>Détails de la Demande</h2>
-      <p><strong>Statut :</strong> {demande.statut}</p>
-      <p><strong>Catégorie :</strong> {demande.categorie?.nom}</p>
-      <p><strong>Client :</strong> {demande.utilisateur?.prenom} {demande.utilisateur?.nom}</p>
-      <p><strong>Items :</strong></p>
-      <ul>
-        {demande.demandeItems?.map(di => (
-          <li key={di.id}>
-            {di.item.nom} — {di.quantite} × {di.item.prixUnitaire}€
-          </li>
-        ))}
-      </ul>
+   
 
-      <h3>Paiement</h3>
-      {demande.paiement ? (
-        <>
-          <p><strong>Montant Total :</strong> {demande.paiement.montantTotal}€</p>
-          <p><strong>Compte Paiement :</strong> {demande.paiement.comptePaiement}</p>
-          <p><strong>Montant en Lettres :</strong> {demande.paiement.montantEnLettres}</p>
-          <p><strong>Effectué par :</strong> {demande.paiement.effectuePar}</p>
-          <p><strong>Date :</strong> {new Date(demande.paiement.datePaiement).toLocaleString()}</p>
-        </>
-      ) : <p>Aucun paiement enregistré</p>}
+<p><strong>Date de la demande :</strong> 
+  {demande.dateDemande 
+    ? new Date(demande.dateDemande).toLocaleString("fr-FR") 
+    : "Non renseignée"}
+</p>
+
+<p><strong>Client :</strong> {demande.utilisateur?.prenom} {demande.utilisateur?.nom}</p>
+{demande.utilisateur?.email && <p><strong>Email :</strong> {demande.utilisateur.email}</p>}
+{demande.utilisateur?.telephone && <p><strong>Téléphone :</strong> {demande.utilisateur.telephone}</p>}
+
+<p><strong>Catégorie :</strong> {demande.categorie?.nom}</p>
+<p><strong>Statut :</strong> {demande.statut}</p>
+
+<h3>Items</h3>
+<ul>
+  {demande.demandeItems?.map(di => (
+    <li key={di.id}>
+      {di.item.nom} — {di.quantite} × {di.item.prixUnitaire}€
+      {" "}(<strong>Total ligne :</strong> {di.quantite * di.item.prixUnitaire}€)
+    </li>
+  ))}
+</ul>
+
+<h3>Paiement</h3>
+{demande.paiement ? (
+  <>
+    <p><strong>Montant Total :</strong> {demande.paiement.montantTotal}€</p>
+    <p><strong>Compte Paiement :</strong> {demande.paiement.comptePaiement}</p>
+    <p><strong>Montant en Lettres :</strong> {demande.paiement.montantEnLettres}</p>
+    <p><strong>Effectué par :</strong> {demande.paiement.effectuePar}</p>
+    <p><strong>Date de paiement :</strong> 
+      {demande.paiement.datePaiement 
+        ? new Date(demande.paiement.datePaiement).toLocaleString("fr-FR") 
+        : "Non renseignée"}
+    </p>
+  </>
+) : <p>Aucun paiement enregistré</p>}
+
 
       {demande.statut === "EnAttente" && (
         <>
