@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { convertAmountToFrench } from '../utils/numberToFrench';
 import '../assets/DemandeDetailsPage.css';
 
 export default function DemandeDetailsPage() {
@@ -49,6 +52,183 @@ export default function DemandeDetailsPage() {
     }
   };
 
+  // Calculate total amount
+  const calculateTotal = () => {
+    if (!demande?.demandeItems) return 0;
+    return demande.demandeItems.reduce((total, item) => {
+      return total + (item.quantite * item.item.prixUnitaire);
+    }, 0);
+  };
+
+  // Auto-generate amount in letters when demande is loaded or updated
+  useEffect(() => {
+    if (demande) {
+      const total = calculateTotal();
+      const amountInFrench = convertAmountToFrench(total);
+      
+      setPaymentInfo(prev => ({
+        ...prev,
+        montantEnLettres: demande.paiement?.montantEnLettres || amountInFrench
+      }));
+    }
+  }, [demande]);
+
+  // PDF Export Function
+  const exportToPDF = () => {
+    if (!demande) {
+      alert("Aucune donnée à exporter");
+      return;
+    }
+
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.width;
+      let yPosition = 20;
+
+      // Helper function to add text with proper spacing
+      const addText = (text, x, y, options = {}) => {
+        doc.text(text, x, y, options);
+        return y + (options.lineHeight || 10);
+      };
+
+      // Helper function to add a section separator
+      const addSeparator = (y) => {
+        doc.setDrawColor(200, 200, 200);
+        doc.line(20, y, pageWidth - 20, y);
+        return y + 10;
+      };
+
+      // Title
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      yPosition = addText('FACTURE DE DEMANDE', pageWidth / 2, yPosition, { 
+        align: 'center', 
+        lineHeight: 15 
+      });
+
+      yPosition = addSeparator(yPosition);
+
+      // Company/Payment Account Info
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      yPosition = addText('COMPTE PAIEMENT:', 20, yPosition, { lineHeight: 12 });
+      doc.setFont(undefined, 'normal');
+      yPosition = addText(demande.paiement?.comptePaiement || paymentInfo.comptePaiement, 20, yPosition, { lineHeight: 10 });
+
+      // Effectué Par
+      doc.setFont(undefined, 'bold');
+      yPosition = addText('EFFECTUE PAR:', 20, yPosition + 5, { lineHeight: 12 });
+      doc.setFont(undefined, 'normal');
+      yPosition = addText(demande.paiement?.effectuePar || paymentInfo.effectuePar, 20, yPosition, { lineHeight: 10 });
+
+      yPosition = addSeparator(yPosition + 5);
+
+      // Client Information
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      yPosition = addText('INFORMATIONS CLIENT', 20, yPosition, { lineHeight: 15 });
+
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'normal');
+      yPosition = addText(`Client: ${demande.utilisateur?.prenom} ${demande.utilisateur?.nom}`, 20, yPosition, { lineHeight: 8 });
+      
+      if (demande.utilisateur?.email) {
+        yPosition = addText(`Email: ${demande.utilisateur.email}`, 20, yPosition, { lineHeight: 8 });
+      }
+      
+      if (demande.utilisateur?.telephone) {
+        yPosition = addText(`Telephone: ${demande.utilisateur.telephone}`, 20, yPosition, { lineHeight: 8 });
+      }
+
+      yPosition = addText(`Categorie: ${demande.categorie?.nom}`, 20, yPosition, { lineHeight: 8 });
+      yPosition = addText(`Date de demande: ${formatDate(demande.dateDemande)}`, 20, yPosition, { lineHeight: 10 });
+
+      yPosition = addSeparator(yPosition + 5);
+
+      // Items Table
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      yPosition = addText('ARTICLES DEMANDES', 20, yPosition, { lineHeight: 15 });
+
+      if (demande.demandeItems && demande.demandeItems.length > 0) {
+        const tableData = demande.demandeItems.map(item => [
+          item.item.nom,
+          item.quantite.toString(),
+          `${item.item.prixUnitaire.toFixed(2)} DT`,
+          `${(item.quantite * item.item.prixUnitaire).toFixed(2)} DT`
+        ]);
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Article', 'Quantite', 'Prix Unitaire', 'Total']],
+          body: tableData,
+          theme: 'grid',
+          styles: {
+            fontSize: 10,
+            cellPadding: 3,
+          },
+          headStyles: {
+            fillColor: [79, 140, 255],
+            textColor: 255,
+            fontStyle: 'bold'
+          },
+          margin: { left: 20, right: 20 },
+        });
+
+        yPosition = doc.lastAutoTable.finalY + 10;
+      }
+
+      // Total Amount
+      const totalAmount = calculateTotal();
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(22, 163, 74); // Green color
+      yPosition = addText(`TOTAL GENERAL: ${totalAmount.toFixed(2)} DT`, pageWidth - 20, yPosition, { 
+        align: 'right', 
+        lineHeight: 15 
+      });
+
+      doc.setTextColor(0, 0, 0); // Reset to black
+      yPosition = addSeparator(yPosition + 5);
+
+      // Amount in Letters
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      yPosition = addText('MONTANT EN LETTRES:', 20, yPosition, { lineHeight: 12 });
+      doc.setFont(undefined, 'normal');
+      const montantEnLettres = demande.paiement?.montantEnLettres || paymentInfo.montantEnLettres || convertAmountToFrench(totalAmount);
+      
+      // Handle long text for amount in letters
+      const splitText = doc.splitTextToSize(montantEnLettres, pageWidth - 40);
+      doc.text(splitText, 20, yPosition);
+      yPosition += (splitText.length * 6) + 10;
+
+      // Payment Date
+      if (demande.paiement?.datePaiement) {
+        yPosition = addSeparator(yPosition);
+        doc.setFont(undefined, 'bold');
+        yPosition = addText('DATE DE PAIEMENT:', 20, yPosition, { lineHeight: 12 });
+        doc.setFont(undefined, 'normal');
+        yPosition = addText(formatDate(demande.paiement.datePaiement), 20, yPosition, { lineHeight: 10 });
+      }
+
+      // Footer
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Document genere automatiquement', pageWidth / 2, pageHeight - 20, { align: 'center' });
+      doc.text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+      // Save the PDF
+      const fileName = `Demande_${demande.utilisateur?.nom}_${demande.utilisateur?.prenom}_${new Date().getTime()}.pdf`;
+      doc.save(fileName);
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Erreur lors de la génération du PDF');
+    }
+  };
+
   useEffect(() => {
     fetch(`https://localhost:7101/api/admindemandes/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -59,9 +239,15 @@ export default function DemandeDetailsPage() {
       })
       .then(data => {
         setDemande(data);
+        
+        // Calculate total and convert to French
+        const total = data.demandeItems?.reduce((sum, item) => 
+          sum + (item.quantite * item.item.prixUnitaire), 0) || 0;
+        const amountInFrench = convertAmountToFrench(total);
+        
         setPaymentInfo({
           comptePaiement: data.paiement?.comptePaiement || "00410562",
-          montantEnLettres: data.paiement?.montantEnLettres || "",
+          montantEnLettres: data.paiement?.montantEnLettres || amountInFrench,
           effectuePar: data.paiement?.effectuePar || "toufik"
         });
         setLoading(false);
@@ -75,6 +261,13 @@ export default function DemandeDetailsPage() {
   const handleChange = e => {
     const { name, value } = e.target;
     setPaymentInfo(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Function to regenerate amount in letters
+  const regenerateAmountInLetters = () => {
+    const total = calculateTotal();
+    const amountInFrench = convertAmountToFrench(total);
+    setPaymentInfo(prev => ({ ...prev, montantEnLettres: amountInFrench }));
   };
 
   const sendRequest = (url, method, body, successMsg) => {
@@ -132,13 +325,6 @@ export default function DemandeDetailsPage() {
     setShowModal(false);
   };
 
-  const calculateTotal = () => {
-    if (!demande?.demandeItems) return 0;
-    return demande.demandeItems.reduce((total, item) => {
-      return total + (item.quantite * item.item.prixUnitaire);
-    }, 0);
-  };
-
   if (loading) {
     return (
       <div className="demande-details-container">
@@ -171,13 +357,22 @@ export default function DemandeDetailsPage() {
   return (
     <div className="demande-details-container">
       <div className="demande-header">
+        <div>
+          <button 
+            className="back-button"
+            onClick={() => navigate("/admin/demandes")}
+          >
+            ← Retour à la liste
+          </button>
+          <h1 className="demande-title">Détails de la Demande</h1>
+        </div>
         <button 
-          className="back-button"
-          onClick={() => navigate("/admin/demandes")}
+          className="btn btn-export"
+          onClick={exportToPDF}
+          disabled={!demande}
         >
-          ← Retour à la liste
+          📄 Exporter en PDF
         </button>
-        <h1 className="demande-title">Détails de la Demande</h1>
       </div>
 
       {/* Client Information */}
@@ -307,15 +502,28 @@ export default function DemandeDetailsPage() {
 
             <div className="form-group">
               <label className="form-label">Montant en Lettres *</label>
-              <input 
-                type="text" 
-                name="montantEnLettres" 
-                value={paymentInfo.montantEnLettres} 
-                onChange={handleChange}
-                className="form-input"
-                placeholder="Ex: Mille deux cents euros"
-                required
-              />
+              <div className="input-with-button">
+                <input 
+                  type="text" 
+                  name="montantEnLettres" 
+                  value={paymentInfo.montantEnLettres} 
+                  onChange={handleChange}
+                  className="form-input prefilled"
+                  placeholder="Ex: Deux cent cinquante dinars"
+                  required
+                />
+                <button 
+                  type="button"
+                  className="btn-regenerate"
+                  onClick={regenerateAmountInLetters}
+                  title="Régénérer automatiquement"
+                >
+                  🔄
+                </button>
+              </div>
+              <small className="form-hint">
+                Le montant est généré automatiquement. Cliquez sur 🔄 pour régénérer.
+              </small>
             </div>
 
             <div className="form-group">
@@ -369,13 +577,23 @@ export default function DemandeDetailsPage() {
 
             <div className="form-group">
               <label className="form-label">Montant en Lettres</label>
-              <input 
-                type="text" 
-                name="montantEnLettres" 
-                value={paymentInfo.montantEnLettres} 
-                onChange={handleChange}
-                className="form-input"
-              />
+              <div className="input-with-button">
+                <input 
+                  type="text" 
+                  name="montantEnLettres" 
+                  value={paymentInfo.montantEnLettres} 
+                  onChange={handleChange}
+                  className="form-input"
+                />
+                <button 
+                  type="button"
+                  className="btn-regenerate"
+                  onClick={regenerateAmountInLetters}
+                  title="Régénérer automatiquement"
+                >
+                  🔄
+                </button>
+              </div>
             </div>
 
             <div className="form-group">

@@ -492,3 +492,164 @@
 .mt-4 {
   margin-top: 16px;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* for pdf desgin */
+/* Add this to your existing DemandeDetailsPage.css file */
+
+/* Export button styling */
+.btn-export {
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+}
+
+.btn-export:hover {
+  background: linear-gradient(135deg, #5b21b6 0%, #4c1d95 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+}
+
+.btn-export:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Update header to accommodate both button and title */
+.demande-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+}
+
+.demande-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Responsive adjustments for header */
+@media (max-width: 768px) {
+  .demande-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .btn-export {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* this is for calcuation convert*/
+/* Add this to your existing DemandeDetailsPage.css file */
+
+/* Input with button styling */
+.input-with-button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-button .form-input {
+  flex: 1;
+}
+
+.btn-regenerate {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-regenerate:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.form-hint {
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.form-input.prefilled {
+  background: #f0f9ff;
+  border-color: #0ea5e9;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .input-with-button {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-regenerate {
+    width: 100%;
+    justify-content: center;
+  }
+}
