@@ -69,10 +69,11 @@ function Navbar() {
                 </Link>
                
                 <Link className="navbar-link" to="/admin/demandes">Gestion des Demandes</Link>
-                 <Link className="navbar-link" to="/demandes">Faire une demande</Link>
+                <Link className="navbar-link" to="/demandes">Faire une demande</Link>
+                <Link className="navbar-link" to="/demandes/history">Mon Historique</Link>
 
                  
-                    {userRole === 'SuperAdmin' && (
+                {userRole === 'SuperAdmin' && (
                     <Link to="/admin/users" className="navbar-link manage-users">
                         Manage Users
                     </Link>
@@ -98,9 +99,13 @@ function Navbar() {
             </>
         )}
 
-            {userRole === "Utilisateur" && (
-            <Link className="navbar-link" to="/demandes">Faire une demande</Link>
-            )}
+        {userRole === "Utilisateur" && (
+                     
+            <>
+                <Link className="navbar-link" to="/demandes">Faire une demande</Link>
+                <Link className="navbar-link" to="/demandes/historique">Mon Historique</Link>
+            </>
+        )}
 
     </nav>
 );

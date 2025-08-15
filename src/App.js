@@ -13,7 +13,7 @@ import DemandePage from './pages/DemandePage';
 
 import AdminDemandesPage from './pages/AdminDemandesPage';
 import DemandeDetailsPage from './pages/DemandeDetailsPage';
-
+import DemandeHistoryPage from './pages/DemandeHistoryPage';
 
 
 
@@ -32,7 +32,7 @@ function App() {
 
                    <Route path="/admin/demandes" element={<AdminDemandesPage />} />
                    <Route path="/admin/demandes/:id" element={<DemandeDetailsPage />} />
-
+                    <Route path="/demandes/historique" element={<DemandeHistoryPage />} />
 
 
 

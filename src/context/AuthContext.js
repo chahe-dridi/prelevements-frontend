@@ -6,6 +6,7 @@ export function AuthProvider({ children }) {
   const [userRole, setUserRole] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
   const [token, setToken] = useState(null);
+  
 
   // Optional: load token and user info from localStorage on mount
   useEffect(() => {
