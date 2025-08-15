@@ -14,10 +14,18 @@ export default function DemandeDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState({
-    comptePaiement: "00410562", // Auto-filled as requested
+    comptePaiement: "00410562",
     montantEnLettres: "",
-    effectuePar: "toufik" // Auto-filled as requested
+    effectuePar: "toufik",
+    statut: ""
   });
+
+  // Status options
+  const statusOptions = [
+    { value: "EnAttente", label: "En Attente", color: "#d97706" },
+    { value: "Validee", label: "Validée", color: "#16a34a" },
+    { value: "Refusee", label: "Refusée", color: "#dc2626" }
+  ];
 
   // Safe date formatter
   const formatDate = (dateStr) => {
@@ -60,6 +68,22 @@ export default function DemandeDetailsPage() {
     }, 0);
   };
 
+  // Check if payment fields should be shown in modal
+  const shouldShowPaymentFields = () => {
+    // If current demande status is not "Refusee", always show payment fields
+    if (demande?.statut?.toLowerCase() !== 'refusee') {
+      return true;
+    }
+    
+    // If current demande is "Refusee", only show payment fields if user selects "Validee"
+    return paymentInfo.statut === 'Validee';
+  };
+
+  // Check if PDF export should be available
+  const shouldShowPDFExport = () => {
+    return demande?.statut?.toLowerCase() === 'validee';
+  };
+
   // Auto-generate amount in letters when demande is loaded or updated
   useEffect(() => {
     if (demande) {
@@ -68,10 +92,27 @@ export default function DemandeDetailsPage() {
       
       setPaymentInfo(prev => ({
         ...prev,
-        montantEnLettres: demande.paiement?.montantEnLettres || amountInFrench
+        montantEnLettres: demande.paiement?.montantEnLettres || amountInFrench,
+        statut: demande.statut || ""
       }));
     }
   }, [demande]);
+
+  // Reset payment fields when status changes from "Validee" to something else
+  useEffect(() => {
+    if (demande?.statut?.toLowerCase() === 'refusee' && paymentInfo.statut !== 'Validee') {
+      // Keep the default values but don't show the fields
+    } else if (paymentInfo.statut === 'Validee') {
+      // Auto-fill when switching to Validee
+      const total = calculateTotal();
+      const amountInFrench = convertAmountToFrench(total);
+      
+      setPaymentInfo(prev => ({
+        ...prev,
+        montantEnLettres: prev.montantEnLettres || amountInFrench
+      }));
+    }
+  }, [paymentInfo.statut]);
 
   // PDF Export Function
   const exportToPDF = () => {
@@ -80,25 +121,28 @@ export default function DemandeDetailsPage() {
       return;
     }
 
+    // Additional check to ensure only validated demandes can be exported
+    if (demande.statut?.toLowerCase() !== 'validee') {
+      alert("Seules les demandes validées peuvent être exportées en PDF");
+      return;
+    }
+
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.width;
       let yPosition = 20;
 
-      // Helper function to add text with proper spacing
       const addText = (text, x, y, options = {}) => {
         doc.text(text, x, y, options);
         return y + (options.lineHeight || 10);
       };
 
-      // Helper function to add a section separator
       const addSeparator = (y) => {
         doc.setDrawColor(200, 200, 200);
         doc.line(20, y, pageWidth - 20, y);
         return y + 10;
       };
 
-      // Title
       doc.setFontSize(18);
       doc.setFont(undefined, 'bold');
       yPosition = addText('FACTURE DE DEMANDE', pageWidth / 2, yPosition, { 
@@ -108,14 +152,12 @@ export default function DemandeDetailsPage() {
 
       yPosition = addSeparator(yPosition);
 
-      // Company/Payment Account Info
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
       yPosition = addText('COMPTE PAIEMENT:', 20, yPosition, { lineHeight: 12 });
       doc.setFont(undefined, 'normal');
       yPosition = addText(demande.paiement?.comptePaiement || paymentInfo.comptePaiement, 20, yPosition, { lineHeight: 10 });
 
-      // Effectué Par
       doc.setFont(undefined, 'bold');
       yPosition = addText('EFFECTUE PAR:', 20, yPosition + 5, { lineHeight: 12 });
       doc.setFont(undefined, 'normal');
@@ -123,7 +165,6 @@ export default function DemandeDetailsPage() {
 
       yPosition = addSeparator(yPosition + 5);
 
-      // Client Information
       doc.setFontSize(14);
       doc.setFont(undefined, 'bold');
       yPosition = addText('INFORMATIONS CLIENT', 20, yPosition, { lineHeight: 15 });
@@ -145,7 +186,6 @@ export default function DemandeDetailsPage() {
 
       yPosition = addSeparator(yPosition + 5);
 
-      // Items Table
       doc.setFontSize(14);
       doc.setFont(undefined, 'bold');
       yPosition = addText('ARTICLES DEMANDES', 20, yPosition, { lineHeight: 15 });
@@ -178,32 +218,28 @@ export default function DemandeDetailsPage() {
         yPosition = doc.lastAutoTable.finalY + 10;
       }
 
-      // Total Amount
       const totalAmount = calculateTotal();
       doc.setFontSize(14);
       doc.setFont(undefined, 'bold');
-      doc.setTextColor(22, 163, 74); // Green color
+      doc.setTextColor(22, 163, 74);
       yPosition = addText(`TOTAL GENERAL: ${totalAmount.toFixed(2)} DT`, pageWidth - 20, yPosition, { 
         align: 'right', 
         lineHeight: 15 
       });
 
-      doc.setTextColor(0, 0, 0); // Reset to black
+      doc.setTextColor(0, 0, 0);
       yPosition = addSeparator(yPosition + 5);
 
-      // Amount in Letters
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
       yPosition = addText('MONTANT EN LETTRES:', 20, yPosition, { lineHeight: 12 });
       doc.setFont(undefined, 'normal');
       const montantEnLettres = demande.paiement?.montantEnLettres || paymentInfo.montantEnLettres || convertAmountToFrench(totalAmount);
       
-      // Handle long text for amount in letters
       const splitText = doc.splitTextToSize(montantEnLettres, pageWidth - 40);
       doc.text(splitText, 20, yPosition);
       yPosition += (splitText.length * 6) + 10;
 
-      // Payment Date
       if (demande.paiement?.datePaiement) {
         yPosition = addSeparator(yPosition);
         doc.setFont(undefined, 'bold');
@@ -212,14 +248,12 @@ export default function DemandeDetailsPage() {
         yPosition = addText(formatDate(demande.paiement.datePaiement), 20, yPosition, { lineHeight: 10 });
       }
 
-      // Footer
       const pageHeight = doc.internal.pageSize.height;
       doc.setFontSize(8);
       doc.setTextColor(128, 128, 128);
       doc.text('Document genere automatiquement', pageWidth / 2, pageHeight - 20, { align: 'center' });
       doc.text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
 
-      // Save the PDF
       const fileName = `Demande_${demande.utilisateur?.nom}_${demande.utilisateur?.prenom}_${new Date().getTime()}.pdf`;
       doc.save(fileName);
 
@@ -240,7 +274,6 @@ export default function DemandeDetailsPage() {
       .then(data => {
         setDemande(data);
         
-        // Calculate total and convert to French
         const total = data.demandeItems?.reduce((sum, item) => 
           sum + (item.quantite * item.item.prixUnitaire), 0) || 0;
         const amountInFrench = convertAmountToFrench(total);
@@ -248,7 +281,8 @@ export default function DemandeDetailsPage() {
         setPaymentInfo({
           comptePaiement: data.paiement?.comptePaiement || "00410562",
           montantEnLettres: data.paiement?.montantEnLettres || amountInFrench,
-          effectuePar: data.paiement?.effectuePar || "toufik"
+          effectuePar: data.paiement?.effectuePar || "toufik",
+          statut: data.statut || ""
         });
         setLoading(false);
       })
@@ -263,7 +297,6 @@ export default function DemandeDetailsPage() {
     setPaymentInfo(prev => ({ ...prev, [name]: value }));
   };
 
-  // Function to regenerate amount in letters
   const regenerateAmountInLetters = () => {
     const total = calculateTotal();
     const amountInFrench = convertAmountToFrench(total);
@@ -281,8 +314,11 @@ export default function DemandeDetailsPage() {
     })
       .then(res => {
         if (!res.ok) throw new Error(successMsg.error);
+        return res.json();
+      })
+      .then(data => {
         alert(successMsg.success);
-        navigate("/admin/demandes");
+        window.location.reload();
       })
       .catch(err => alert(err.message));
   };
@@ -309,13 +345,29 @@ export default function DemandeDetailsPage() {
         .then(res => {
           if (!res.ok) throw new Error("Erreur lors du refus");
           alert("❌ Demande refusée !");
-          navigate("/admin/demandes");
+          window.location.reload();
         })
         .catch(err => alert(err.message));
     }
   };
 
   const handleUpdate = () => {
+    // Validation for Validee status
+    if (paymentInfo.statut === 'Validee') {
+      if (!paymentInfo.montantEnLettres.trim()) {
+        alert("Veuillez remplir le montant en lettres pour valider la demande");
+        return;
+      }
+      if (!paymentInfo.comptePaiement.trim()) {
+        alert("Veuillez remplir le compte paiement pour valider la demande");
+        return;
+      }
+      if (!paymentInfo.effectuePar.trim()) {
+        alert("Veuillez remplir le champ 'Effectué par' pour valider la demande");
+        return;
+      }
+    }
+
     sendRequest(
       `https://localhost:7101/api/admindemandes/update/${id}`,
       "PUT",
@@ -323,6 +375,23 @@ export default function DemandeDetailsPage() {
       { success: "✅ Demande mise à jour avec succès !", error: "Erreur lors de la mise à jour" }
     );
     setShowModal(false);
+  };
+
+  // Get modal title based on current status
+  const getModalTitle = () => {
+    if (demande?.statut?.toLowerCase() === 'refusee') {
+      return "Changer le Statut de la Demande";
+    }
+    return "Mettre à Jour le Paiement et Statut";
+  };
+
+  // Get status options based on current status
+  const getStatusOptionsForModal = () => {
+    if (demande?.statut?.toLowerCase() === 'refusee') {
+      // For refused demandes, only show options to change to other statuses
+      return statusOptions.filter(option => option.value !== 'Refusee');
+    }
+    return statusOptions;
   };
 
   if (loading) {
@@ -366,13 +435,16 @@ export default function DemandeDetailsPage() {
           </button>
           <h1 className="demande-title">Détails de la Demande</h1>
         </div>
-        <button 
-          className="btn btn-export"
-          onClick={exportToPDF}
-          disabled={!demande}
-        >
-          📄 Exporter en PDF
-        </button>
+        {/* Only show PDF export button for validated demandes */}
+        {shouldShowPDFExport() && (
+          <button 
+            className="btn btn-export"
+            onClick={exportToPDF}
+            disabled={!demande}
+          >
+            📄 Exporter en PDF
+          </button>
+        )}
       </div>
 
       {/* Client Information */}
@@ -552,7 +624,7 @@ export default function DemandeDetailsPage() {
         {(demande.statut === "Validee" || demande.statut === "Refusee") && (
           <div className="actions-container">
             <button onClick={() => setShowModal(true)} className="btn btn-update">
-              ✏️ Mettre à Jour les Informations
+              {demande.statut === "Refusee" ? "🔄 Changer le Statut" : "✏️ Mettre à Jour les Informations"}
             </button>
           </div>
         )}
@@ -562,54 +634,89 @@ export default function DemandeDetailsPage() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3 className="modal-title">Mettre à Jour le Paiement</h3>
+            <h3 className="modal-title">{getModalTitle()}</h3>
             
             <div className="form-group">
-              <label className="form-label">Compte Paiement</label>
-              <input 
-                type="text" 
-                name="comptePaiement" 
-                value={paymentInfo.comptePaiement} 
+              <label className="form-label">Statut de la Demande</label>
+              <select 
+                name="statut" 
+                value={paymentInfo.statut} 
                 onChange={handleChange}
-                className="form-input"
-              />
+                className="form-input form-select"
+              >
+                <option value="">-- Garder le statut actuel --</option>
+                {getStatusOptionsForModal().map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <small className="form-hint">
+                {demande.statut === "Refusee" 
+                  ? "Sélectionnez un nouveau statut pour cette demande refusée"
+                  : `Laissez vide pour conserver le statut actuel: ${getStatusText(demande.statut)}`
+                }
+              </small>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Montant en Lettres</label>
-              <div className="input-with-button">
-                <input 
-                  type="text" 
-                  name="montantEnLettres" 
-                  value={paymentInfo.montantEnLettres} 
-                  onChange={handleChange}
-                  className="form-input"
-                />
-                <button 
-                  type="button"
-                  className="btn-regenerate"
-                  onClick={regenerateAmountInLetters}
-                  title="Régénérer automatiquement"
-                >
-                  🔄
-                </button>
+            {/* Payment fields - only show based on conditions */}
+            {shouldShowPaymentFields() && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Compte Paiement</label>
+                  <input 
+                    type="text" 
+                    name="comptePaiement" 
+                    value={paymentInfo.comptePaiement} 
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Montant en Lettres</label>
+                  <div className="input-with-button">
+                    <input 
+                      type="text" 
+                      name="montantEnLettres" 
+                      value={paymentInfo.montantEnLettres} 
+                      onChange={handleChange}
+                      className="form-input"
+                    />
+                    <button 
+                      type="button"
+                      className="btn-regenerate"
+                      onClick={regenerateAmountInLetters}
+                      title="Régénérer automatiquement"
+                    >
+                      🔄
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Effectué Par</label>
+                  <input
+                    type="text"
+                    name="effectuePar"
+                    value={paymentInfo.effectuePar}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Show hint when status is Refusee and user selects Validee */}
+            {demande?.statut?.toLowerCase() === 'refusee' && paymentInfo.statut === 'Validee' && (
+              <div className="form-hint status-change-hint">
+                💡 En changeant le statut vers "Validée", vous devez remplir les informations de paiement ci-dessus.
               </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Effectué Par</label>
-              <input
-                type="text"
-                name="effectuePar"
-                value={paymentInfo.effectuePar}
-                onChange={handleChange}
-                className="form-input"
-              />
-            </div>
+            )}
 
             <div className="modal-actions">
               <button onClick={handleUpdate} className="btn btn-save">
-                💾 Enregistrer
+                💾 Enregistrer les Modifications
               </button>
               <button onClick={() => setShowModal(false)} className="btn btn-cancel">
                 Annuler
