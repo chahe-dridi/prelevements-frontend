@@ -114,6 +114,21 @@ export default function DemandeDetailsPage() {
     }
   }, [paymentInfo.statut]);
 
+  // ...existing code...
+
+  // Safe date formatter for PDF (date only, no time)
+  const formatDateOnly = (dateStr) => {
+    if (!dateStr) return "Non renseignée";
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? "Format de date invalide" : d.toLocaleDateString("fr-FR");
+  };
+
+  // PDF Export Function
+  // ...existing code...
+
+  // PDF Export Function
+ // ...existing code...
+
   // PDF Export Function
   const exportToPDF = () => {
     if (!demande) {
@@ -129,130 +144,51 @@ export default function DemandeDetailsPage() {
 
     try {
       const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.width;
       let yPosition = 20;
 
-      const addText = (text, x, y, options = {}) => {
-        doc.text(text, x, y, options);
-        return y + (options.lineHeight || 10);
-      };
-
-      const addSeparator = (y) => {
-        doc.setDrawColor(200, 200, 200);
-        doc.line(20, y, pageWidth - 20, y);
-        return y + 10;
-      };
-
-      doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
-      yPosition = addText('FACTURE DE DEMANDE', pageWidth / 2, yPosition, { 
-        align: 'center', 
-        lineHeight: 15 
-      });
-
-      yPosition = addSeparator(yPosition);
-
+      // Set default font
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      yPosition = addText('COMPTE PAIEMENT:', 20, yPosition, { lineHeight: 12 });
       doc.setFont(undefined, 'normal');
-      yPosition = addText(demande.paiement?.comptePaiement || paymentInfo.comptePaiement, 20, yPosition, { lineHeight: 10 });
 
-      doc.setFont(undefined, 'bold');
-      yPosition = addText('EFFECTUE PAR:', 20, yPosition + 5, { lineHeight: 12 });
-      doc.setFont(undefined, 'normal');
-      yPosition = addText(demande.paiement?.effectuePar || paymentInfo.effectuePar, 20, yPosition, { lineHeight: 10 });
-
-      yPosition = addSeparator(yPosition + 5);
-
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      yPosition = addText('INFORMATIONS CLIENT', 20, yPosition, { lineHeight: 15 });
-
-      doc.setFontSize(11);
-      doc.setFont(undefined, 'normal');
-      yPosition = addText(`Client: ${demande.utilisateur?.prenom} ${demande.utilisateur?.nom}`, 20, yPosition, { lineHeight: 8 });
+      // COMPTE PAIEMENT
+      yPosition += 10;
+      doc.text(demande.paiement?.comptePaiement || paymentInfo.comptePaiement, 20, yPosition);
       
-      if (demande.utilisateur?.email) {
-        yPosition = addText(`Email: ${demande.utilisateur.email}`, 20, yPosition, { lineHeight: 8 });
+      // EFFECTUE PAR
+      yPosition += 10;
+      doc.text(demande.paiement?.effectuePar || paymentInfo.effectuePar, 20, yPosition);
+      
+      // Client name + Category + Items all on the same line
+      yPosition += 15;
+      const clientName = `${demande.utilisateur?.prenom || ''} ${demande.utilisateur?.nom || ''}`.trim();
+      let completeLine = clientName;
+      
+      // Add category
+      if (demande.categorie?.nom) {
+        completeLine += ` ${demande.categorie.nom}`;
       }
       
-      if (demande.utilisateur?.telephone) {
-        yPosition = addText(`Telephone: ${demande.utilisateur.telephone}`, 20, yPosition, { lineHeight: 8 });
-      }
-
-      yPosition = addText(`Categorie: ${demande.categorie?.nom}`, 20, yPosition, { lineHeight: 8 });
-      yPosition = addText(`Date de demande: ${formatDate(demande.dateDemande)}`, 20, yPosition, { lineHeight: 10 });
-
-      yPosition = addSeparator(yPosition + 5);
-
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      yPosition = addText('ARTICLES DEMANDES', 20, yPosition, { lineHeight: 15 });
-
+      // Add items
       if (demande.demandeItems && demande.demandeItems.length > 0) {
-        const tableData = demande.demandeItems.map(item => [
-          item.item.nom,
-          item.quantite.toString(),
-          `${item.item.prixUnitaire.toFixed(2)} DT`,
-          `${(item.quantite * item.item.prixUnitaire).toFixed(2)} DT`
-        ]);
-
-        autoTable(doc, {
-          startY: yPosition,
-          head: [['Article', 'Quantite', 'Prix Unitaire', 'Total']],
-          body: tableData,
-          theme: 'grid',
-          styles: {
-            fontSize: 10,
-            cellPadding: 3,
-          },
-          headStyles: {
-            fillColor: [79, 140, 255],
-            textColor: 255,
-            fontStyle: 'bold'
-          },
-          margin: { left: 20, right: 20 },
-        });
-
-        yPosition = doc.lastAutoTable.finalY + 10;
+        const itemsList = demande.demandeItems.map(item => `${item.item.nom} ${item.quantite}`).join(' ');
+        completeLine += ` ${itemsList}`;
       }
-
-      const totalAmount = calculateTotal();
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(22, 163, 74);
-      yPosition = addText(`TOTAL GENERAL: ${totalAmount.toFixed(2)} DT`, pageWidth - 20, yPosition, { 
-        align: 'right', 
-        lineHeight: 15 
-      });
-
-      doc.setTextColor(0, 0, 0);
-      yPosition = addSeparator(yPosition + 5);
-
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      yPosition = addText('MONTANT EN LETTRES:', 20, yPosition, { lineHeight: 12 });
-      doc.setFont(undefined, 'normal');
-      const montantEnLettres = demande.paiement?.montantEnLettres || paymentInfo.montantEnLettres || convertAmountToFrench(totalAmount);
       
-      const splitText = doc.splitTextToSize(montantEnLettres, pageWidth - 40);
-      doc.text(splitText, 20, yPosition);
-      yPosition += (splitText.length * 6) + 10;
-
-      if (demande.paiement?.datePaiement) {
-        yPosition = addSeparator(yPosition);
-        doc.setFont(undefined, 'bold');
-        yPosition = addText('DATE DE PAIEMENT:', 20, yPosition, { lineHeight: 12 });
-        doc.setFont(undefined, 'normal');
-        yPosition = addText(formatDate(demande.paiement.datePaiement), 20, yPosition, { lineHeight: 10 });
-      }
-
-      const pageHeight = doc.internal.pageSize.height;
-      doc.setFontSize(8);
-      doc.setTextColor(128, 128, 128);
-      doc.text('Document genere automatiquement', pageWidth / 2, pageHeight - 20, { align: 'center' });
-      doc.text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      doc.text(completeLine, 20, yPosition);
+      
+      // Total only
+      yPosition += 15;
+      const totalAmount = calculateTotal();
+      doc.text(`${totalAmount.toFixed(2)}DT`, 20, yPosition);
+      
+      // Montant en Lettres
+      yPosition += 10;
+      const montantEnLettres = demande.paiement?.montantEnLettres || paymentInfo.montantEnLettres || convertAmountToFrench(totalAmount);
+      doc.text(montantEnLettres, 20, yPosition);
+      
+      // Date at the end (date only, no time)
+      yPosition += 15;
+      doc.text(formatDateOnly(demande.dateDemande), 20, yPosition);
 
       const fileName = `Demande_${demande.utilisateur?.nom}_${demande.utilisateur?.prenom}_${new Date().getTime()}.pdf`;
       doc.save(fileName);
@@ -262,6 +198,15 @@ export default function DemandeDetailsPage() {
       alert('Erreur lors de la génération du PDF');
     }
   };
+
+// ...existing code...
+
+// ...existing code...
+// ...existing code...
+
+// ...existing code...
+
+// ...existing code...
 
   useEffect(() => {
     fetch(`https://localhost:7101/api/admindemandes/${id}`, {
