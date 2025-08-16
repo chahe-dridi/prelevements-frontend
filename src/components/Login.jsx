@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import '../assets/Login.css';
+import Footer from './Footer';
 
 const Login = () => {
     const location = useLocation();
@@ -50,44 +51,47 @@ const Login = () => {
     const isMobile = window.innerWidth <= 480;
 
     return (
-        <div className="login-container">
-            <div className={`login-card ${isMobile ? 'mobile' : ''}`}>
-                <h2 className={`login-title ${isMobile ? 'mobile' : ''}`}>
-                    Login
-                </h2>
-                <form onSubmit={handleLogin} className="login-form">
-                    <input
-                        type="email"
-                        placeholder="Email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        autoComplete="username"
-                        required
-                        className={`login-input ${isMobile ? 'mobile' : ''}`}
-                    />
-                    <input
-                        type="password"
-                        placeholder="Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
-                        required
-                        className={`login-input ${isMobile ? 'mobile' : ''}`}
-                    />
-                    <button 
-                        type="submit"
-                        className={`login-button ${isMobile ? 'mobile' : ''}`}
-                    >
+        <>
+            <div className="login-container">
+                <div className={`login-card ${isMobile ? 'mobile' : ''}`}>
+                    <h2 className={`login-title ${isMobile ? 'mobile' : ''}`}>
                         Login
-                    </button>
-                </form>
-                <p className={`login-message ${isMobile ? 'mobile' : ''} ${
-                    message.startsWith("✅") ? 'success' : message ? 'error' : ''
-                }`}>
-                    {message}
-                </p>
+                    </h2>
+                    <form onSubmit={handleLogin} className="login-form">
+                        <input
+                            type="email"
+                            placeholder="Email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="username"
+                            required
+                            className={`login-input ${isMobile ? 'mobile' : ''}`}
+                        />
+                        <input
+                            type="password"
+                            placeholder="Password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
+                            required
+                            className={`login-input ${isMobile ? 'mobile' : ''}`}
+                        />
+                        <button 
+                            type="submit"
+                            className={`login-button ${isMobile ? 'mobile' : ''}`}
+                        >
+                            Login
+                        </button>
+                    </form>
+                    <p className={`login-message ${isMobile ? 'mobile' : ''} ${
+                        message.startsWith("✅") ? 'success' : message ? 'error' : ''
+                    }`}>
+                        {message}
+                    </p>
+                </div>
             </div>
-        </div>
+            <Footer />
+        </>
     );
 };
 

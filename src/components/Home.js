@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import Footer from './Footer';
 import '../assets/Home.css';
 
 function Home() {
@@ -37,10 +38,10 @@ function Home() {
                                 <p className="welcome-message">
                                     👋 Bonjour, <strong>{userEmail}</strong>!
                                 </p>
-                                <Link to="/demande" className="btn btn-primary">
+                                <Link to="/demandes" className="btn btn-primary">
                                     📝 Nouvelle Demande
                                 </Link>
-                                <Link to="/demande-history" className="btn btn-secondary">
+                                <Link to="/demandes/historique" className="btn btn-secondary">
                                     📊 Mon Historique
                                 </Link>
                             </div>
@@ -93,49 +94,29 @@ function Home() {
                     </div>
                 </div>
             </section>
+ 
 
-            {/* Stats Section */}
-            <section className="stats-section">
-                <div className="container">
-                    <h2 className="section-title">Pourquoi Nous Choisir?</h2>
-                    <div className="stats-grid">
-                        <div className="stat-item">
-                            <div className="stat-number">🚀</div>
-                            <div className="stat-label">Interface Moderne</div>
-                        </div>
-                        <div className="stat-item">
-                            <div className="stat-number">⚡</div>
-                            <div className="stat-label">Traitement Rapide</div>
-                        </div>
-                        <div className="stat-item">
-                            <div className="stat-number">🔒</div>
-                            <div className="stat-label">Sécurisé</div>
-                        </div>
-                        <div className="stat-item">
-                            <div className="stat-number">📱</div>
-                            <div className="stat-label">Responsive</div>
+            {/* CTA Section - Only show if not logged in */}
+            {!token && (
+                <section className="cta-section">
+                    <div className="container">
+                        <div className="cta-content">
+                            <h2 className="cta-title">Prêt à Commencer?</h2>
+                            <p className="cta-description">
+                                Rejoignez-nous dès aujourd'hui et simplifiez la gestion de vos demandes
+                            </p>
+                            <div className="cta-actions">
+                                <Link to="/register" className="btn btn-primary btn-large">
+                                    🎯 Créer un Compte
+                                </Link>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
 
-          
-
-            {/* Footer */}
-            <footer className="home-footer">
-                <div className="container">
-                    <div className="footer-content">
-                        <div className="footer-text">
-                            <p>&copy; 2024 Prelevements App. Tous droits réservés.</p>
-                        </div>
-                        <div className="footer-links">
-                            <span className="footer-link">📞 Support</span>
-                            <span className="footer-link">📧 Contact</span>
-                            <span className="footer-link">📋 Documentation</span>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            {/* Use the reusable Footer component */}
+            <Footer />
         </div>
     );
 }

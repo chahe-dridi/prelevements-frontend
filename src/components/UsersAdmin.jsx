@@ -2,6 +2,7 @@ import React, { useEffect, useState, useContext, useMemo } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import '../assets/UsersAdmin.css';
+import Footer from './Footer';
 
 const UsersAdmin = () => {
   const { token, userRole } = useContext(AuthContext);
@@ -12,7 +13,17 @@ const UsersAdmin = () => {
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [editForm, setEditForm] = useState({ nom: "", prenom: "", email: "", role: "" });
+  const [editForm, setEditForm] = useState({ 
+    nom: "", 
+    prenom: "", 
+    email: "", 
+    role: "",
+    password: "",
+    confirmPassword: "",
+    updatePassword: false
+  });
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -21,9 +32,18 @@ const UsersAdmin = () => {
 
   const roles = ['SuperAdmin', 'Admin', 'Utilisateur'];
 
+  const showMessage = (msg, type = 'info') => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => {
+      setMessage('');
+      setMessageType('');
+    }, 5000);
+  };
+
   useEffect(() => {
     if (!token) {
-      setError("No authentication token found.");
+      setError("Aucun token d'authentification trouvé.");
       setLoading(false);
       return;
     }
@@ -42,7 +62,7 @@ const UsersAdmin = () => {
       },
     })
       .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch users: " + res.status);
+        if (!res.ok) throw new Error("Échec du chargement des utilisateurs: " + res.status);
         return res.json();
       })
       .then(data => {
@@ -62,22 +82,26 @@ const UsersAdmin = () => {
     return role;
   };
 
-  // Filter users based on search term
+  // Enhanced filter with multiple search criteria
   const filteredUsers = useMemo(() => {
     if (!searchTerm.trim()) {
       return users;
     }
 
-   
-
-  const searchTermLower = searchTerm.toLowerCase().trim();
-  
-  return users.filter(user => {
-    // Search only by email
-    const email = (user.email || '').toLowerCase();
-    return email.includes(searchTermLower);
-  });
-}, [users, searchTerm]);
+    const searchTermLower = searchTerm.toLowerCase().trim();
+    
+    return users.filter(user => {
+      const nom = (user.nom || '').toLowerCase();
+      const prenom = (user.prenom || '').toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const role = convertRoleToString(user.role).toLowerCase();
+      
+      return nom.includes(searchTermLower) || 
+             prenom.includes(searchTermLower) || 
+             email.includes(searchTermLower) ||
+             role.includes(searchTermLower);
+    });
+  }, [users, searchTerm]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -95,59 +119,40 @@ const UsersAdmin = () => {
     return `role-badge ${roleString}`;
   };
 
-  const handleRoleChange = async (userId, newRole) => {
-    setUpdatingUserId(userId);
-    setError("");
-
-    const roleEnumValue = roles.indexOf(newRole);
-
-    try {
-      const response = await fetch('https://localhost:7101/api/Users/role', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ userId, role: roleEnumValue }),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || 'Failed to update role');
-      }
-
-      setUsers(prev =>
-        prev.map(u =>
-          u.id === userId ? { ...u, role: roleEnumValue } : u
-        )
-      );
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setUpdatingUserId(null);
-    }
-  };
-
   const openEditModal = (user) => {
     setEditingUser(user);
     setEditForm({
       nom: user.nom,
       prenom: user.prenom,
       email: user.email,
-      role: convertRoleToString(user.role)
+      role: convertRoleToString(user.role),
+      password: "",
+      confirmPassword: "",
+      updatePassword: false
     });
     setShowModal(true);
+    setError("");
   };
 
   const closeModal = () => {
     setShowModal(false);
     setEditingUser(null);
-    setEditForm({ nom: "", prenom: "", email: "", role: "" });
+    setEditForm({ 
+      nom: "", 
+      prenom: "", 
+      email: "", 
+      role: "",
+      password: "",
+      confirmPassword: "",
+      updatePassword: false
+    });
     setError("");
+    setMessage('');
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    const user = users.find(u => u.id === userId);
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user?.nom} ${user?.prenom}?`)) return;
 
     setUpdatingUserId(userId);
     setError("");
@@ -161,13 +166,31 @@ const UsersAdmin = () => {
       });
 
       if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || 'Failed to delete user');
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || 'Échec de la suppression';
+        } catch {
+          const errorText = await response.text();
+          errorMessage = errorText || 'Échec de la suppression';
+        }
+        throw new Error(errorMessage);
       }
 
+      const result = await response.json();
+      
       setUsers(prev => prev.filter(u => u.id !== userId));
+      showMessage(result.message || '✅ Utilisateur supprimé avec succès!', 'success');
+      
+      // Adjust pagination if needed
+      const newTotalCount = filteredUsers.length - 1;
+      const newTotalPages = Math.ceil(newTotalCount / itemsPerPage);
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages);
+      }
     } catch (err) {
       setError(err.message);
+      showMessage(`❌ Erreur: ${err.message}`, 'error');
     } finally {
       setUpdatingUserId(null);
     }
@@ -176,10 +199,55 @@ const UsersAdmin = () => {
   const saveUser = async () => {
     if (!editingUser) return;
 
+    // Validation
+    if (!editForm.nom.trim() || !editForm.prenom.trim() || !editForm.email.trim()) {
+      setError("Tous les champs obligatoires doivent être remplis");
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editForm.email)) {
+      setError("Format d'email invalide");
+      return;
+    }
+
+    // Password validation if updating password
+    if (editForm.updatePassword) {
+      if (!editForm.password || !editForm.confirmPassword) {
+        setError("Veuillez saisir le mot de passe et sa confirmation");
+        return;
+      }
+
+      if (editForm.password !== editForm.confirmPassword) {
+        setError("Les mots de passe ne correspondent pas");
+        return;
+      }
+
+      if (editForm.password.length < 6) {
+        setError("Le mot de passe doit contenir au moins 6 caractères");
+        return;
+      }
+    }
+
     setUpdatingUserId(editingUser.id);
     setError("");
 
     const roleEnumValue = roles.indexOf(editForm.role);
+
+    // Prepare the update data
+    const updateData = {
+      nom: editForm.nom.trim(),
+      prenom: editForm.prenom.trim(),
+      email: editForm.email.trim(),
+      role: roleEnumValue
+    };
+
+    // Add password fields if updating password
+    if (editForm.updatePassword) {
+      updateData.password = editForm.password;
+      updateData.confirmPassword = editForm.confirmPassword;
+    }
 
     try {
       const response = await fetch(`https://localhost:7101/api/Users/${editingUser.id}`, {
@@ -188,26 +256,36 @@ const UsersAdmin = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          nom: editForm.nom,
-          prenom: editForm.prenom,
-          email: editForm.email,
-          role: roleEnumValue
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || 'Failed to update user');
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || 'Échec de la mise à jour';
+        } catch {
+          const errorText = await response.text();
+          errorMessage = errorText || 'Échec de la mise à jour';
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       setUsers(prev =>
         prev.map(u =>
           u.id === editingUser.id
-            ? { ...u, ...editForm, role: roleEnumValue }
+            ? { ...u, nom: editForm.nom, prenom: editForm.prenom, email: editForm.email, role: roleEnumValue }
             : u
         )
       );
+      
+      const successMessage = editForm.updatePassword 
+        ? result.message || '✅ Utilisateur et mot de passe mis à jour avec succès!'
+        : result.message || '✅ Utilisateur mis à jour avec succès!';
+      
+      showMessage(successMessage, 'success');
       closeModal();
     } catch (err) {
       setError(err.message);
@@ -229,11 +307,9 @@ const UsersAdmin = () => {
     const buttons = [];
     const maxVisiblePages = 5;
     
-    // Calculate range of pages to show
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
     
-    // Adjust start page if we're near the end
     if (endPage - startPage + 1 < maxVisiblePages) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
@@ -246,11 +322,11 @@ const UsersAdmin = () => {
         onClick={() => handlePageChange(currentPage - 1)}
         disabled={currentPage === 1}
       >
-        ← Previous
+        ← Précédent
       </button>
     );
 
-    // First page button
+    // First page
     if (startPage > 1) {
       buttons.push(
         <button
@@ -268,7 +344,7 @@ const UsersAdmin = () => {
       }
     }
 
-    // Page number buttons
+    // Page numbers
     for (let i = startPage; i <= endPage; i++) {
       buttons.push(
         <button
@@ -281,7 +357,7 @@ const UsersAdmin = () => {
       );
     }
 
-    // Last page button
+    // Last page
     if (endPage < totalPages) {
       if (endPage < totalPages - 1) {
         buttons.push(
@@ -307,7 +383,7 @@ const UsersAdmin = () => {
         onClick={() => handlePageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
       >
-        Next →
+        Suivant →
       </button>
     );
 
@@ -317,7 +393,11 @@ const UsersAdmin = () => {
   if (loading) {
     return (
       <div className="users-admin-container">
-        <div className="loading-message">🔄 Loading users...</div>
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <div className="loading-message">🔄 Chargement des utilisateurs...</div>
+        </div>
+        <Footer />
       </div>
     );
   }
@@ -325,20 +405,48 @@ const UsersAdmin = () => {
   if (error && users.length === 0) {
     return (
       <div className="users-admin-container">
-        <div className="error-message">❌ Error: {error}</div>
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <div className="error-message">Erreur: {error}</div>
+          <button 
+            className="retry-button"
+            onClick={() => window.location.reload()}
+          >
+            🔄 Réessayer
+          </button>
+        </div>
+        <Footer />
       </div>
     );
   }
 
   return (
     <div className="users-admin-container">
+      {/* Header Section */}
       <div className="users-admin-header">
-        <h2 className="users-admin-title">👥 Users Management</h2>
-        <span className="users-count">
-          {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} 
-          {searchTerm && ` (filtered from ${users.length})`}
-        </span>
+        <div className="header-content">
+          <h1 className="users-admin-title">👥 Gestion des Utilisateurs</h1>
+          <p className="users-admin-subtitle">
+            Gérez les comptes utilisateurs et leurs rôles
+          </p>
+        </div>
+        <div className="header-stats">
+          <div className="stat-card">
+            <div className="stat-number">{filteredUsers.length}</div>
+            <div className="stat-label">
+              Utilisateur{filteredUsers.length !== 1 ? 's' : ''}
+              {searchTerm && ` (filtré${filteredUsers.length !== 1 ? 's' : ''} sur ${users.length})`}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Messages */}
+      {message && (
+        <div className={`message ${messageType}`}>
+          {message}
+        </div>
+      )}
 
       {error && (
         <div className="error-message" style={{ marginBottom: '20px' }}>
@@ -346,10 +454,10 @@ const UsersAdmin = () => {
         </div>
       )}
 
-      {/* Pagination Controls */}
+      {/* Controls Section */}
       <div className="pagination-controls">
         <div className="items-per-page">
-          <label htmlFor="itemsPerPage">Show:</label>
+          <label htmlFor="itemsPerPage">📄 Afficher:</label>
           <select
             id="itemsPerPage"
             value={itemsPerPage}
@@ -360,23 +468,36 @@ const UsersAdmin = () => {
             <option value={25}>25</option>
             <option value={50}>50</option>
           </select>
-          <span>per page</span>
+          <span>par page</span>
         </div>
 
         <div className="search-box">
           <input
             type="text"
-            placeholder="🔍 Search by email"
+            placeholder="🔍 Rechercher par nom, prénom, email ou rôle..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
+          {searchTerm && (
+            <button 
+              className="clear-search"
+              onClick={() => setSearchTerm('')}
+              title="Effacer la recherche"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Table Section */}
       {filteredUsers.length === 0 ? (
         <div className="no-users-message">
-          {searchTerm ? `No users found matching "${searchTerm}"` : "No users found."}
+          {searchTerm 
+            ? `Aucun résultat pour "${searchTerm}". Essayez un autre terme de recherche.`
+            : "Aucun utilisateur trouvé."
+          }
         </div>
       ) : (
         <>
@@ -384,16 +505,16 @@ const UsersAdmin = () => {
             <table className="users-table">
               <thead>
                 <tr>
-                  <th>Nom</th>
-                  <th>Prénom</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Actions</th>
+                  <th>👤 Nom</th>
+                  <th>👤 Prénom</th>
+                  <th>📧 Email</th>
+                  <th>🏷️ Rôle</th>
+                  <th>⚙️ Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {currentUsers.map(user => (
-                  <tr key={user.id}>
+                  <tr key={user.id} className={updatingUserId === user.id ? 'updating' : ''}>
                     <td>{user.nom}</td>
                     <td>{user.prenom}</td>
                     <td>{user.email}</td>
@@ -408,16 +529,18 @@ const UsersAdmin = () => {
                           className="edit-button"
                           onClick={() => openEditModal(user)}
                           disabled={updatingUserId === user.id}
+                          title="Modifier l'utilisateur"
                         >
-                          ✏️ Edit
+                          ✏️ Modifier
                         </button>
                         
                         <button 
                           className="delete-button"
                           onClick={() => handleDeleteUser(user.id)}
                           disabled={updatingUserId === user.id}
+                          title="Supprimer l'utilisateur"
                         >
-                          🗑️ Delete
+                          🗑️ Supprimer
                         </button>
                       </div>
                     </td>
@@ -431,7 +554,7 @@ const UsersAdmin = () => {
           {totalPages > 1 && (
             <div className="pagination-container">
               <div className="pagination-info">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} entries
+                Affichage {startIndex + 1} à {Math.min(endIndex, filteredUsers.length)} sur {filteredUsers.length} entrées
               </div>
               <div className="pagination-controls-bottom">
                 {renderPaginationButtons()}
@@ -446,48 +569,53 @@ const UsersAdmin = () => {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">✏️ Edit User</h3>
+              <h3 className="modal-title">✏️ Modifier l'Utilisateur</h3>
               <button className="close-button" onClick={closeModal}>
                 ✕
               </button>
             </div>
 
             <form onSubmit={e => { e.preventDefault(); saveUser(); }}>
-              <div className="form-group">
-                <label className="form-label">Nom</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={editForm.nom}
-                  onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
-                  required
-                />
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">👤 Nom *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editForm.nom}
+                    onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                    placeholder="Entrez le nom"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">👤 Prénom *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editForm.prenom}
+                    onChange={(e) => setEditForm({ ...editForm, prenom: e.target.value })}
+                    placeholder="Entrez le prénom"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Prénom</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={editForm.prenom}
-                  onChange={(e) => setEditForm({ ...editForm, prenom: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Email</label>
+                <label className="form-label">📧 Email *</label>
                 <input
                   type="email"
                   className="form-input"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  placeholder="exemple@email.com"
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Role</label>
+                <label className="form-label">🏷️ Rôle *</label>
                 <select
                   className="form-select"
                   value={editForm.role}
@@ -500,26 +628,90 @@ const UsersAdmin = () => {
                 </select>
               </div>
 
+              {/* Password Update Section */}
+              <div className="password-section">
+                <div className="form-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={editForm.updatePassword}
+                      onChange={(e) => setEditForm({ 
+                        ...editForm, 
+                        updatePassword: e.target.checked,
+                        password: "",
+                        confirmPassword: ""
+                      })}
+                      className="form-checkbox"
+                    />
+                    <span className="checkbox-text">🔑 Modifier le mot de passe</span>
+                  </label>
+                </div>
+
+                {editForm.updatePassword && (
+                  <>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label">🔒 Nouveau mot de passe *</label>
+                        <input
+                          type="password"
+                          className="form-input"
+                          value={editForm.password}
+                          onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                          placeholder="Minimum 6 caractères"
+                          required={editForm.updatePassword}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">🔒 Confirmer le mot de passe *</label>
+                        <input
+                          type="password"
+                          className="form-input"
+                          value={editForm.confirmPassword}
+                          onChange={(e) => setEditForm({ ...editForm, confirmPassword: e.target.value })}
+                          placeholder="Répétez le mot de passe"
+                          required={editForm.updatePassword}
+                        />
+                      </div>
+                    </div>
+
+                    {editForm.password && editForm.confirmPassword && editForm.password !== editForm.confirmPassword && (
+                      <div className="password-mismatch-warning">
+                        ⚠️ Les mots de passe ne correspondent pas
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {error && (
+                <div className="form-error">
+                  ❌ {error}
+                </div>
+              )}
+
               <div className="modal-actions">
                 <button 
                   type="button"
                   className="cancel-button" 
                   onClick={closeModal}
                 >
-                  Cancel
+                  ❌ Annuler
                 </button>
                 <button 
                   type="submit"
                   className="save-button" 
                   disabled={updatingUserId === editingUser?.id}
                 >
-                  {updatingUserId === editingUser?.id ? '⏳ Saving...' : '💾 Save Changes'}
+                  {updatingUserId === editingUser?.id ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   );
 };
