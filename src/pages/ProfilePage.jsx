@@ -1,16 +1,23 @@
-// src/pages/ProfilePage.jsx
 import React, { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
+import '../assets/ProfilePage.css';
 
 function ProfilePage() {
     const { token, userEmail } = useContext(AuthContext);
-    const [formData, setFormData] = useState({
+    const [activeTab, setActiveTab] = useState("profile");
+    const [profileData, setProfileData] = useState({
         nom: "",
         prenom: "",
         email: ""
     });
+    const [passwordData, setPasswordData] = useState({
+        password: "",
+        confirmPassword: ""
+    });
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState("");
+    const [showConfirmation, setShowConfirmation] = useState(false);
+    const [pendingUpdate, setPendingUpdate] = useState(null);
 
     useEffect(() => {
         if (!token) return;
@@ -23,7 +30,7 @@ function ProfilePage() {
                 return res.json();
             })
             .then(data => {
-                setFormData({
+                setProfileData({
                     nom: data.nom || "",
                     prenom: data.prenom || "",
                     email: data.email || ""
@@ -32,16 +39,40 @@ function ProfilePage() {
             })
             .catch(err => {
                 console.error(err);
+                setMessage("Error: Failed to load profile");
                 setLoading(false);
             });
     }, [token]);
 
-    const handleChange = e => {
-        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleProfileChange = e => {
+        setProfileData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    const handleSubmit = e => {
-        e.preventDefault();
+    const handlePasswordChange = e => {
+        setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const showConfirmationDialog = (updateType, data) => {
+        setPendingUpdate({ type: updateType, data });
+        setShowConfirmation(true);
+    };
+
+    const handleConfirm = () => {
+        setShowConfirmation(false);
+        if (pendingUpdate?.type === "profile") {
+            updateProfile(pendingUpdate.data);
+        } else if (pendingUpdate?.type === "password") {
+            updatePassword(pendingUpdate.data);
+        }
+        setPendingUpdate(null);
+    };
+
+    const handleCancel = () => {
+        setShowConfirmation(false);
+        setPendingUpdate(null);
+    };
+
+    const updateProfile = (data) => {
         setMessage("");
 
         fetch("https://localhost:7101/api/Users/profile", {
@@ -50,151 +81,212 @@ function ProfilePage() {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`
             },
-            body: JSON.stringify(formData)
+            body: JSON.stringify(data)
         })
             .then(res => {
                 if (!res.ok) throw new Error("Failed to update profile");
                 return res.text();
             })
-            .then(() => setMessage("Profile updated successfully!"))
+            .then(() => {
+                setMessage("Profil mis à jour avec succès!");
+                setTimeout(() => setMessage(""), 3000);
+            })
             .catch(err => setMessage("Error: " + err.message));
     };
 
-    if (loading) return <p>Loading profile...</p>;
+    const updatePassword = (data) => {
+        setMessage("");
+
+        // Use the dedicated password endpoint
+        fetch("https://localhost:7101/api/Users/password", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                password: data.password,
+                confirmPassword: data.confirmPassword
+            })
+        })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(errorData => {
+                        throw new Error(errorData.message || "Failed to update password");
+                    });
+                }
+                return res.json();
+            })
+            .then((response) => {
+                setMessage(response.message || "Mot de passe mis à jour avec succès!");
+                setPasswordData({ password: "", confirmPassword: "" });
+                setTimeout(() => setMessage(""), 3000);
+            })
+            .catch(err => setMessage("Erreur: " + err.message));
+    };
+
+    const handleProfileSubmit = e => {
+        e.preventDefault();
+        showConfirmationDialog("profile", profileData);
+    };
+
+    const handlePasswordSubmit = e => {
+        e.preventDefault();
+        
+        if (passwordData.password !== passwordData.confirmPassword) {
+            setMessage("Erreur: Les mots de passe ne correspondent pas");
+            return;
+        }
+        
+        if (passwordData.password.length < 6) {
+            setMessage("Erreur: Le mot de passe doit contenir au moins 6 caractères");
+            return;
+        }
+
+        showConfirmationDialog("password", passwordData);
+    };
+
+    if (loading) {
+        return (
+            <div className="profile-page-container">
+                <div className="loading-text">
+                    🔄 Chargement du profil...
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
-        }}>
-            <div style={{
-                background: "#fff",
-                borderRadius: "16px",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-                padding: "32px 40px",
-                maxWidth: "420px",
-                width: "100%"
-            }}>
-                <h2 style={{
-                    textAlign: "center",
-                    marginBottom: "24px",
-                    color: "#2d3a4b",
-                    letterSpacing: "1px"
-                }}>
-                    Update My Profile
-                </h2>
+        <div className="profile-page-container">
+            <div className="profile-card">
+                <h2 className="profile-title">Mon Profil</h2>
+                
+                {/* Tab Navigation */}
+                <div className="section-tabs">
+                    <button 
+                        className={`tab-button ${activeTab === "profile" ? "active" : ""}`}
+                        onClick={() => setActiveTab("profile")}
+                    >
+                        👤 Informations
+                    </button>
+                    <button 
+                        className={`tab-button ${activeTab === "password" ? "active" : ""}`}
+                        onClick={() => setActiveTab("password")}
+                    >
+                        🔒 Mot de passe
+                    </button>
+                </div>
+
+                {/* Message Display */}
                 {message && (
-                    <div style={{
-                        marginBottom: "16px",
-                        padding: "10px",
-                        borderRadius: "6px",
-                        background: message.startsWith("Error") ? "#ffeaea" : "#e6ffed",
-                        color: message.startsWith("Error") ? "#d93025" : "#137333",
-                        border: message.startsWith("Error") ? "1px solid #f5c6cb" : "1px solid #b7eb8f"
-                    }}>
+                    <div className={`message ${message.startsWith("Error") || message.startsWith("Erreur") ? "error" : "success"}`}>
                         {message}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: "18px" }}>
-                        <label style={{
-                            display: "block",
-                            marginBottom: "6px",
-                            fontWeight: "bold",
-                            color: "#2d3a4b"
-                        }}>Nom:</label>
-                        <input
-                            type="text"
-                            name="nom"
-                            value={formData.nom}
-                            onChange={handleChange}
-                            style={{
-                                width: "100%",
-                                padding: "10px",
-                                borderRadius: "6px",
-                                border: "1px solid #d1d5db",
-                                fontSize: "16px",
-                                outline: "none",
-                                transition: "border 0.2s",
-                                boxSizing: "border-box"
-                            }}
-                            required
-                        />
-                    </div>
-                    <div style={{ marginBottom: "18px" }}>
-                        <label style={{
-                            display: "block",
-                            marginBottom: "6px",
-                            fontWeight: "bold",
-                            color: "#2d3a4b"
-                        }}>Prénom:</label>
-                        <input
-                            type="text"
-                            name="prenom"
-                            value={formData.prenom}
-                            onChange={handleChange}
-                            style={{
-                                width: "100%",
-                                padding: "10px",
-                                borderRadius: "6px",
-                                border: "1px solid #d1d5db",
-                                fontSize: "16px",
-                                outline: "none",
-                                transition: "border 0.2s",
-                                boxSizing: "border-box"
-                            }}
-                            required
-                        />
-                    </div>
-                    <div style={{ marginBottom: "24px" }}>
-                        <label style={{
-                            display: "block",
-                            marginBottom: "6px",
-                            fontWeight: "bold",
-                            color: "#2d3a4b"
-                        }}>Email:</label>
-                        <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            style={{
-                                width: "100%",
-                                padding: "10px",
-                                borderRadius: "6px",
-                                border: "1px solid #d1d5db",
-                                fontSize: "16px",
-                                outline: "none",
-                                transition: "border 0.2s",
-                                boxSizing: "border-box"
-                            }}
-                            required
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        style={{
-                            width: "100%",
-                            padding: "12px",
-                            background: "linear-gradient(90deg, #4f8cff 0%, #3358e6 100%)",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "6px",
-                            fontWeight: "bold",
-                            fontSize: "16px",
-                            cursor: "pointer",
-                            boxShadow: "0 2px 8px rgba(79,140,255,0.10)",
-                            transition: "background 0.2s"
-                        }}
-                    >
-                        Update Profile
-                    </button>
-                </form>
+                {/* Profile Information Tab */}
+                {activeTab === "profile" && (
+                    <form onSubmit={handleProfileSubmit}>
+                        <div className="form-group">
+                            <label className="form-label">Nom:</label>
+                            <input
+                                type="text"
+                                name="nom"
+                                value={profileData.nom}
+                                onChange={handleProfileChange}
+                                className="form-input"
+                                required
+                            />
+                        </div>
+                        
+                        <div className="form-group">
+                            <label className="form-label">Prénom:</label>
+                            <input
+                                type="text"
+                                name="prenom"
+                                value={profileData.prenom}
+                                onChange={handleProfileChange}
+                                className="form-input"
+                                required
+                            />
+                        </div>
+                        
+                        <div className="form-group">
+                            <label className="form-label">Email:</label>
+                            <input
+                                type="email"
+                                name="email"
+                                value={profileData.email}
+                                onChange={handleProfileChange}
+                                className="form-input"
+                                required
+                            />
+                        </div>
+                        
+                        <button type="submit" className="btn btn-primary">
+                            💾 Mettre à jour le profil
+                        </button>
+                    </form>
+                )}
+
+                {/* Password Tab */}
+                {activeTab === "password" && (
+                    <form onSubmit={handlePasswordSubmit}>
+                        <div className="form-group">
+                            <label className="form-label">Nouveau mot de passe:</label>
+                            <input
+                                type="password"
+                                name="password"
+                                value={passwordData.password}
+                                onChange={handlePasswordChange}
+                                className="form-input"
+                                placeholder="Minimum 6 caractères"
+                                required
+                            />
+                        </div>
+                        
+                        <div className="form-group">
+                            <label className="form-label">Confirmer le mot de passe:</label>
+                            <input
+                                type="password"
+                                name="confirmPassword"
+                                value={passwordData.confirmPassword}
+                                onChange={handlePasswordChange}
+                                className="form-input"
+                                placeholder="Répétez le mot de passe"
+                                required
+                            />
+                        </div>
+                        
+                        <button type="submit" className="btn btn-secondary">
+                            🔒 Changer le mot de passe
+                        </button>
+                    </form>
+                )}
             </div>
+
+            {/* Confirmation Dialog */}
+            {showConfirmation && (
+                <div className="confirmation-overlay">
+                    <div className="confirmation-dialog">
+                        <h3 className="confirmation-title">Confirmer la modification</h3>
+                        <p className="confirmation-message">
+                            {pendingUpdate?.type === "profile" 
+                                ? "Êtes-vous sûr de vouloir mettre à jour vos informations personnelles ?"
+                                : "Êtes-vous sûr de vouloir changer votre mot de passe ?"
+                            }
+                        </p>
+                        <div className="confirmation-buttons">
+                            <button className="btn-confirm cancel" onClick={handleCancel}>
+                                Annuler
+                            </button>
+                            <button className="btn-confirm confirm" onClick={handleConfirm}>
+                                Confirmer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

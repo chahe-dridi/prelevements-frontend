@@ -7,8 +7,9 @@ export default function AdminDemandesPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [emailFilter, setEmailFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [itemsPerPage, setItemsPerPage] = useState(9);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -91,11 +92,39 @@ export default function AdminDemandesPage() {
   };
 
   const stats = getStatistics();
+/*
+  const filteredDemandes = demandes.filter(demande => {
+    // Status filter
+    if (statusFilter && demande.statut?.toLowerCase() !== statusFilter.toLowerCase()) {
+      return false;
+    }
+    
+    // Email filter
+    if (emailFilter && !demande.utilisateur?.email?.toLowerCase().includes(emailFilter.toLowerCase())) {
+      return false;
+    }
+    
+    return true;
+  });*/
+
 
   const filteredDemandes = demandes.filter(demande => {
-    if (!statusFilter) return true;
-    return demande.statut?.toLowerCase() === statusFilter.toLowerCase();
-  });
+  // Status filter
+  if (statusFilter && demande.statut?.toLowerCase() !== statusFilter.toLowerCase()) {
+    return false;
+  }
+  
+  // Email filter - Updated to check both cases
+  if (emailFilter) {
+    const userEmail = demande.utilisateur?.Email || demande.utilisateur?.email;
+    console.log('User data:', demande.utilisateur);
+    if (!userEmail?.toLowerCase().includes(emailFilter.toLowerCase())) {
+      return false;
+    }
+  }
+  
+  return true;
+});
 
   // Pagination logic
   const totalPages = Math.ceil(filteredDemandes.length / itemsPerPage);
@@ -106,7 +135,7 @@ export default function AdminDemandesPage() {
   // Reset to first page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter]);
+  }, [statusFilter, emailFilter]);
 
   const formatDateTime = (dateString) => {
     if (!dateString) return { date: 'Date non disponible', time: '' };
@@ -242,14 +271,13 @@ export default function AdminDemandesPage() {
       <div className="admin-demandes-container">
         <div className="admin-demandes-header">
           <h1 className="admin-demandes-title">Gestion des Demandes</h1>
-          <button className="refresh-button" onClick={fetchDemandes}>
-            🔄 Actualiser
-          </button>
         </div>
-        <div className="empty-state">
-          <div className="empty-state-icon">📋</div>
-          <h3 className="empty-state-title">Aucune demande trouvée</h3>
-          <p className="empty-state-subtitle">Il n'y a actuellement aucune demande à afficher.</p>
+        <div className="form-section">
+          <div className="empty-state">
+            <div className="empty-state-icon">📋</div>
+            <h3 className="empty-state-title">Aucune demande trouvée</h3>
+            <p className="empty-state-subtitle">Il n'y a actuellement aucune demande à afficher.</p>
+          </div>
         </div>
       </div>
     );
@@ -257,64 +285,79 @@ export default function AdminDemandesPage() {
 
   return (
     <div className="admin-demandes-container">
-      <div className="admin-demandes-header">
-        <div>
+      {/* Header Section with Stats */}
+      <div className="form-section">
+        <div className="admin-demandes-header">
           <h1 className="admin-demandes-title">Gestion des Demandes</h1>
-          <p className="admin-subtitle">Dernières demandes en premier</p>
         </div>
-        <button className="refresh-button" onClick={fetchDemandes}>
-          🔄 Actualiser
-        </button>
+
+        {/* Display any error messages */}
+        {error && (
+          <div className="message error">
+            ❌ {error}
+          </div>
+        )}
+
+        {/* Statistics Section */}
+        <div className="stats-container">
+          <div className="stat-card total">
+            <div className="stat-icon">📊</div>
+            <div className="stat-content">
+              <div className="stat-number">{stats.total}</div>
+              <div className="stat-label">Total</div>
+            </div>
+          </div>
+          <div className="stat-card pending">
+            <div className="stat-icon">⏳</div>
+            <div className="stat-content">
+              <div className="stat-number">{stats.enAttente}</div>
+              <div className="stat-label">En Attente</div>
+            </div>
+          </div>
+          <div className="stat-card approved">
+            <div className="stat-icon">✅</div>
+            <div className="stat-content">
+              <div className="stat-number">{stats.validees}</div>
+              <div className="stat-label">Validées</div>
+            </div>
+          </div>
+          <div className="stat-card rejected">
+            <div className="stat-icon">❌</div>
+            <div className="stat-content">
+              <div className="stat-number">{stats.refusees}</div>
+              <div className="stat-label">Refusées</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="stats-container">
-        <div className="stat-card total">
-          <div className="stat-icon">📊</div>
-          <div className="stat-content">
-            <div className="stat-number">{stats.total}</div>
-            <div className="stat-label">Total</div>
-          </div>
-        </div>
-        <div className="stat-card pending">
-          <div className="stat-icon">⏳</div>
-          <div className="stat-content">
-            <div className="stat-number">{stats.enAttente}</div>
-            <div className="stat-label">En Attente</div>
-          </div>
-        </div>
-        <div className="stat-card approved">
-          <div className="stat-icon">✅</div>
-          <div className="stat-content">
-            <div className="stat-number">{stats.validees}</div>
-            <div className="stat-label">Validées</div>
-          </div>
-        </div>
-        <div className="stat-card rejected">
-          <div className="stat-icon">❌</div>
-          <div className="stat-content">
-            <div className="stat-number">{stats.refusees}</div>
-            <div className="stat-label">Refusées</div>
-          </div>
-        </div>
-      </div>
-
+      {/* Filters Section */}
       <div className="filters-container">
         <div className="filter-group">
-          <label className="filter-label">Filtrer par statut:</label>
+          <label className="filter-label">Statut:</label>
           <select 
             className="filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="">Tous les statuts</option>
+            <option value="">Tous</option>
             <option value="enattente">En Attente</option>
             <option value="validee">Validée</option>
             <option value="refusee">Refusée</option>
           </select>
         </div>
         <div className="filter-group">
-          <label className="filter-label">Éléments par page:</label>
+          <label className="filter-label">Email:</label>
+          <input 
+            type="text"
+            className="filter-input"
+            placeholder="Rechercher par email..."
+            value={emailFilter}
+            onChange={(e) => setEmailFilter(e.target.value)}
+          />
+        </div>
+        <div className="filter-group">
+          <label className="filter-label">Par page:</label>
           <select 
             className="filter-select"
             value={itemsPerPage}
@@ -328,83 +371,97 @@ export default function AdminDemandesPage() {
         </div>
         <div className="filter-group">
           <span className="filter-label">Résultats:</span>
-          <span style={{ color: '#6b7280', fontWeight: '500' }}>
-            {filteredDemandes.length} sur {demandes.length} demandes
+          <span className="results-count">
+            {filteredDemandes.length} sur {demandes.length}
           </span>
         </div>
       </div>
 
-      <div className="table-container">
-        <table className="demandes-table">
-          <thead>
-            <tr>
-              <th>👤 Utilisateur</th>
-              <th>📦 Catégorie</th>
-              <th>📊 Statut</th>
-              <th>📅 Date Demande</th>
-              <th>⚡ Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentDemandes.map((d) => {
-              const dateTime = formatDateTime(d.dateDemande);
-              return (
-                <tr key={d.id}>
-                  <td>
-                    <div className="user-info">
-                      <span className="user-name">
-                        {d.utilisateur?.prenom} {d.utilisateur?.nom}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="category-info">
-                      <div className="category-name">
-                        {d.categorie?.nom || 'Catégorie non disponible'}
+      {/* Table Section */}
+      <div className="form-section">
+        <div className="table-container">
+          <table className="demandes-table">
+            <thead>
+              <tr>
+                <th>Utilisateur</th>
+                <th>Catégorie & Articles</th>
+                <th>Statut</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentDemandes.map((d) => {
+                const dateTime = formatDateTime(d.dateDemande);
+                const displayItems = d.items ? d.items.slice(0, 3) : [];
+                const hasMoreItems = d.items && d.items.length > 3;
+                
+                return (
+                  <tr key={d.id}>
+                    <td>
+                      <div className="user-info">
+                        <span className="user-name">
+                          {d.utilisateur?.prenom} {d.utilisateur?.nom}
+                        </span>
+                        <span className="user-email">
+                           {d.utilisateur?.Email || d.utilisateur?.email || 'Email non disponible'}
+    
+                        </span>
                       </div>
-                      {d.items && d.items.length > 0 && (
-                        <div className="items-list">
-                          {d.items.map((item, index) => (
-                            <div key={item.id || index} className="item-detail">
-                              <span className="item-name">{item.nom}</span>
-                              <span className="item-quantity">x{item.quantite}</span>
-                            </div>
-                          ))}
+                    </td>
+                    <td>
+                      <div className="category-info">
+                        <div className="category-name">
+                          {d.categorie?.nom || 'Catégorie non disponible'}
                         </div>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${getStatusClass(d.statut)}`}>
-                      {getStatusText(d.statut)}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="date-info">
-                      <span className="date-primary">{dateTime.date}</span>
-                      <span className="date-time">{dateTime.time}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <button 
-                      className="action-button"
-                      onClick={() => navigate(`/admin/demandes/${d.id}`)}
-                    >
-                      👁️ Voir détails
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                        {displayItems.length > 0 && (
+                          <div className="items-summary">
+                            {displayItems.map((item, index) => (
+                              <span key={item.id || index} className="item-chip">
+                                {item.nom} <span className="item-qty">x{item.quantite}</span>
+                              </span>
+                            ))}
+                            {hasMoreItems && (
+                              <span className="more-items">
+                                +{d.items.length - 3} autres
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${getStatusClass(d.statut)}`}>
+                        {getStatusText(d.statut)}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="date-info">
+                        <span className="date-primary">{dateTime.date}</span>
+                        <span className="date-time">{dateTime.time}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <button 
+                        className="btn btn-primary"
+                        onClick={() => navigate(`/admin/demandes/${d.id}`)}
+                      >
+                        Voir détails
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination Section */}
       {totalPages > 1 && (
         <div className="pagination-container">
           <div className="pagination-info">
-            Affichage de {startIndex + 1} à {Math.min(endIndex, filteredDemandes.length)} sur {filteredDemandes.length} entrées
+            {startIndex + 1} à {Math.min(endIndex, filteredDemandes.length)} sur {filteredDemandes.length}
           </div>
           <div className="pagination-controls">
             {renderPaginationButtons()}

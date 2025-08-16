@@ -80,7 +80,7 @@ const Login = () => {
                             type="submit"
                             className={`login-button ${isMobile ? 'mobile' : ''}`}
                         >
-                            Login
+                            Se connecter
                         </button>
                     </form>
                     <p className={`login-message ${isMobile ? 'mobile' : ''} ${
