@@ -74,11 +74,14 @@ const DemandePage = () => {
     }));
   };
 
-  const handleSubmitDemande = async () => {
+// ...existing code...
+
+const handleSubmitDemande = async () => {
     if (!selectedCategoryId) {
-      showMessage('Veuillez choisir une catégorie.', 'error');
+      showMessage('⚠️ Veuillez choisir une catégorie.', 'error');
       return;
     }
+    
     const filteredItems = Object.entries(selectedItems)
       .filter(([_, qty]) => qty > 0)
       .map(([itemId, quantite]) => ({
@@ -87,36 +90,63 @@ const DemandePage = () => {
       }));
 
     if (filteredItems.length === 0) {
-      showMessage('Veuillez sélectionner au moins un item avec quantité.', 'error');
+      showMessage('⚠️ Veuillez sélectionner au moins un item avec quantité.', 'error');
       return;
     }
 
     try {
       setLoading(true);
+      
+      const payload = {
+        categorieId: selectedCategoryId,
+        items: filteredItems
+      };
+
+      console.log('Sending payload:', JSON.stringify(payload, null, 2));
+
       const res = await fetch(`${API_BASE_URL}/api/demandes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          categorieId: selectedCategoryId,
-          items: filteredItems,
-        })
+        body: JSON.stringify(payload)
       });
+
+      console.log('Response status:', res.status);
+      console.log('Response headers:', res.headers);
+
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(errorText || 'Erreur lors de la création de la demande');
+        console.error('Error response:', errorText);
+        
+        let errorMessage = 'Erreur lors de la création de la demande';
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.Message || errorText;
+        } catch {
+          errorMessage = errorText || `Erreur HTTP ${res.status}: ${res.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
       }
+
+      const result = await res.json();
+      console.log('Success response:', result);
+      
       showMessage('✅ Demande créée avec succès!', 'success');
       setSelectedCategoryId('');
       setSelectedItems({});
     } catch (err) {
+      console.error('Submit error:', err);
       showMessage(`❌ Erreur: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
   };
+
+// ...existing code...
 
   const handleAddCategory = async () => {
     if (!newCategory.nom.trim()) {

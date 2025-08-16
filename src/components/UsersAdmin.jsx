@@ -5,13 +5,14 @@ import '../assets/UsersAdmin.css';
 import Footer from './Footer';
 
 const UsersAdmin = () => {
-  const { token, userRole } = useContext(AuthContext);
+  const { token, userRole, userEmail } = useContext(AuthContext); // Add userEmail
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showRoleConfirmModal, setShowRoleConfirmModal] = useState(false); // New state
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({ 
     nom: "", 
@@ -39,6 +40,11 @@ const UsersAdmin = () => {
       setMessage('');
       setMessageType('');
     }, 5000);
+  };
+
+  // Check if the user is the current logged-in user
+  const isCurrentUser = (user) => {
+    return user.email === userEmail;
   };
 
   useEffect(() => {
@@ -150,8 +156,19 @@ const UsersAdmin = () => {
     setMessage('');
   };
 
+  const closeRoleConfirmModal = () => {
+    setShowRoleConfirmModal(false);
+  };
+
   const handleDeleteUser = async (userId) => {
     const user = users.find(u => u.id === userId);
+    
+    // Prevent deleting current user
+    if (isCurrentUser(user)) {
+      showMessage('❌ Vous ne pouvez pas supprimer votre propre compte!', 'error');
+      return;
+    }
+
     if (!window.confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user?.nom} ${user?.prenom}?`)) return;
 
     setUpdatingUserId(userId);
@@ -194,6 +211,28 @@ const UsersAdmin = () => {
     } finally {
       setUpdatingUserId(null);
     }
+  };
+
+  const handleRoleChange = (newRole) => {
+    // Check if promoting to SuperAdmin
+    if (newRole === 'SuperAdmin' && editForm.role !== 'SuperAdmin') {
+      setEditForm({ ...editForm, role: newRole });
+      setShowRoleConfirmModal(true);
+      return;
+    }
+    
+    setEditForm({ ...editForm, role: newRole });
+  };
+
+  const confirmSuperAdminPromotion = () => {
+    setShowRoleConfirmModal(false);
+    // Role is already set in editForm, just continue
+  };
+
+  const cancelSuperAdminPromotion = () => {
+    setShowRoleConfirmModal(false);
+    // Reset role to previous value
+    setEditForm({ ...editForm, role: convertRoleToString(editingUser.role) });
   };
 
   const saveUser = async () => {
@@ -513,39 +552,45 @@ const UsersAdmin = () => {
                 </tr>
               </thead>
               <tbody>
-                {currentUsers.map(user => (
-                  <tr key={user.id} className={updatingUserId === user.id ? 'updating' : ''}>
-                    <td>{user.nom}</td>
-                    <td>{user.prenom}</td>
-                    <td>{user.email}</td>
-                    <td>
-                      <span className={getRoleBadgeClass(user.role)}>
-                        {convertRoleToString(user.role)}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="actions-cell">
-                        <button 
-                          className="edit-button"
-                          onClick={() => openEditModal(user)}
-                          disabled={updatingUserId === user.id}
-                          title="Modifier l'utilisateur"
-                        >
-                          ✏️ Modifier
-                        </button>
-                        
-                        <button 
-                          className="delete-button"
-                          onClick={() => handleDeleteUser(user.id)}
-                          disabled={updatingUserId === user.id}
-                          title="Supprimer l'utilisateur"
-                        >
-                          🗑️ Supprimer
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {currentUsers.map(user => {
+                  const isCurrentUserRow = isCurrentUser(user);
+                  return (
+                    <tr key={user.id} className={`${updatingUserId === user.id ? 'updating' : ''} ${isCurrentUserRow ? 'current-user-row' : ''}`}>
+                      <td>
+                        {user.nom}
+                        {isCurrentUserRow && <span className="current-user-badge">👤 Vous</span>}
+                      </td>
+                      <td>{user.prenom}</td>
+                      <td>{user.email}</td>
+                      <td>
+                        <span className={getRoleBadgeClass(user.role)}>
+                          {convertRoleToString(user.role)}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="actions-cell">
+                          <button 
+                            className="edit-button"
+                            onClick={() => openEditModal(user)}
+                            disabled={updatingUserId === user.id}
+                            title={isCurrentUserRow ? "Modifier votre profil (rôle non modifiable)" : "Modifier l'utilisateur"}
+                          >
+                            ✏️ Modifier
+                          </button>
+                          
+                          <button 
+                            className="delete-button"
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={updatingUserId === user.id || isCurrentUserRow}
+                            title={isCurrentUserRow ? "Vous ne pouvez pas supprimer votre propre compte" : "Supprimer l'utilisateur"}
+                          >
+                            🗑️ Supprimer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -569,7 +614,10 @@ const UsersAdmin = () => {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">✏️ Modifier l'Utilisateur</h3>
+              <h3 className="modal-title">
+                ✏️ Modifier l'Utilisateur
+                {isCurrentUser(editingUser) && <span className="current-user-indicator"> (Votre Profil)</span>}
+              </h3>
               <button className="close-button" onClick={closeModal}>
                 ✕
               </button>
@@ -619,13 +667,19 @@ const UsersAdmin = () => {
                 <select
                   className="form-select"
                   value={editForm.role}
-                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                  onChange={(e) => handleRoleChange(e.target.value)}
+                  disabled={isCurrentUser(editingUser)}
                   required
                 >
                   {roles.map(r => (
                     <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
+                {isCurrentUser(editingUser) && (
+                  <div className="role-restriction-notice">
+                    ⚠️ Vous ne pouvez pas modifier votre propre rôle
+                  </div>
+                )}
               </div>
 
               {/* Password Update Section */}
@@ -707,6 +761,40 @@ const UsersAdmin = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* SuperAdmin Confirmation Modal */}
+      {showRoleConfirmModal && (
+        <div className="modal-overlay">
+          <div className="modal-content confirmation-modal">
+            <div className="modal-header">
+              <h3 className="modal-title">⚠️ Promotion SuperAdmin</h3>
+            </div>
+            <div className="confirmation-content">
+              <div className="warning-icon">🚨</div>
+              <p className="confirmation-message">
+                Êtes-vous sûr de vouloir promouvoir <strong>{editForm.nom} {editForm.prenom}</strong> au rôle de <strong>SuperAdmin</strong> ?
+              </p>
+              <p className="warning-text">
+                Cette action donnera à cet utilisateur tous les droits d'administration.
+              </p>
+            </div>
+            <div className="modal-actions">
+              <button 
+                className="cancel-button" 
+                onClick={cancelSuperAdminPromotion}
+              >
+                ❌ Annuler
+              </button>
+              <button 
+                className="confirm-button superadmin-confirm" 
+                onClick={confirmSuperAdminPromotion}
+              >
+                ✅ Confirmer la promotion
+              </button>
+            </div>
           </div>
         </div>
       )}

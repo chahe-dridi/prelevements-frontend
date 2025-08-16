@@ -856,3 +856,108 @@
 .pagination-container {
     animation: slideIn 0.3s ease;
 }
+
+
+
+
+
+
+
+
+
+/* Add these styles to your existing UsersAdmin.css */
+
+/* Current user styling */
+.current-user-row {
+  background-color: #f0f9ff !important;
+  border-left: 4px solid #0ea5e9;
+}
+
+.current-user-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 12px;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.current-user-indicator {
+  color: #0ea5e9;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Role restriction notice */
+.role-restriction-notice {
+  font-size: 0.8rem;
+  color: #f59e0b;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: #fef3c7;
+  border-radius: 4px;
+  border-left: 3px solid #f59e0b;
+}
+
+/* Confirmation modal styles */
+.confirmation-modal {
+  max-width: 500px;
+}
+
+.confirmation-content {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.warning-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.confirmation-message {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  color: #374151;
+}
+
+.warning-text {
+  font-size: 0.9rem;
+  color: #dc2626;
+  font-weight: 500;
+  background: #fef2f2;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #dc2626;
+}
+
+.superadmin-confirm {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+}
+
+.superadmin-confirm:hover {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+}
+
+/* Disabled button styling for current user */
+tr.current-user-row .delete-button:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+tr.current-user-row .delete-button:disabled:hover {
+  background: #e5e7eb;
+  transform: none;
+}
+
+/* Form select disabled styling */
+.form-select:disabled {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.7;
+}

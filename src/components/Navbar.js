@@ -99,7 +99,7 @@ function Navbar() {
                     <Link className="navbar-link" to="/demandes">
                         ➕ Faire une demande
                     </Link>
-                    <Link className="navbar-link" to="/demandes/history">
+                    <Link className="navbar-link" to="/demandes/historique">
                         📜 Mon Historique
                     </Link>
                     

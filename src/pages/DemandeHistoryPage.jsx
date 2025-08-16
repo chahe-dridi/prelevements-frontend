@@ -49,9 +49,11 @@ const DemandeHistoryPage = () => {
     return isNaN(d.getTime()) ? "Format de date invalide" : d.toLocaleString("fr-FR");
   };
 
-  // Helper function for items display - ADDED
+  // FIXED Helper function for items display
   const formatItemsDisplay = (demandeItems) => {
-    if (!demandeItems || demandeItems.length === 0) return [];
+    if (!demandeItems || demandeItems.length === 0) {
+      return { visibleItems: [], hasMore: false, totalCount: 0 }; // Return object, not array
+    }
     
     // Show max 3 items, then indicate if there are more
     const maxVisible = 3;
@@ -119,7 +121,7 @@ const DemandeHistoryPage = () => {
     }, 0);
   };
 
-  // Enhanced fetch function with pagination
+  // FIXED Enhanced fetch function - now uses consistent endpoint
   const fetchDemandes = async (page = 1) => {
     try {
       setLoading(true);
@@ -134,6 +136,7 @@ const DemandeHistoryPage = () => {
       }
       
       const response = await res.json();
+      console.log('Demandes response:', response); // Debug log
       
       // Handle both paginated and non-paginated responses
       if (response.data && response.pagination) {
@@ -154,6 +157,7 @@ const DemandeHistoryPage = () => {
     } catch (err) {
       console.error('Fetch error:', err);
       showMessage(`Erreur chargement historique: ${err.message}`, 'error');
+      setDemandes([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -175,19 +179,14 @@ const DemandeHistoryPage = () => {
   };
 
   useEffect(() => {
-    if (userEmail && token) {
+    if (token) { // Only check for token, not userEmail
       fetchDemandes(1);
       fetchCategories();
     } else {
       setLoading(false);
-      if (!userEmail) {
-        showMessage('Utilisateur non identifié', 'error');
-      }
-      if (!token) {
-        showMessage('Token d\'authentification manquant', 'error');
-      }
+      showMessage('Token d\'authentification manquant', 'error');
     }
-  }, [userEmail, token]);
+  }, [token]); // Only depend on token
 
   // Pagination handlers
   const handlePageChange = (newPage) => {
@@ -441,7 +440,7 @@ const DemandeHistoryPage = () => {
     );
   };
 
-  if (loading && (userEmail && token)) {
+  if (loading && token) {
     return (
       <div className="history-container">
         <div className="loading-container">
@@ -451,7 +450,7 @@ const DemandeHistoryPage = () => {
     );
   }
 
-  if (!userEmail || !token) {
+  if (!token) {
     return (
       <div className="history-container">
         <div className="history-header">
@@ -514,7 +513,7 @@ const DemandeHistoryPage = () => {
                     <p className="card-description">{demande.categorie?.description}</p>
                   </div>
 
-                  {/* ENHANCED ITEMS SECTION */}
+                  {/* FIXED ITEMS SECTION */}
                   <div className="card-items">
                     <h4 className="items-title">Articles demandés:</h4>
                     <div className="items-list">
@@ -522,17 +521,23 @@ const DemandeHistoryPage = () => {
                         const { visibleItems, hasMore, totalCount } = formatItemsDisplay(demande.demandeItems);
                         return (
                           <>
-                            {visibleItems.map(di => (
-                              <div key={di.id} className="item-detail">
-                                <span className="item-name" title={di.item.nom}>{di.item.nom}</span>
-                                <span className="item-qty">×{di.quantite}</span>
-                                <span className="item-price">{di.item.prixUnitaire}DT</span>
-                              </div>
-                            ))}
-                            {hasMore && (
-                              <div className="items-count">
-                                ... et {totalCount - visibleItems.length} autre{totalCount - visibleItems.length > 1 ? 's' : ''} article{totalCount - visibleItems.length > 1 ? 's' : ''}
-                              </div>
+                            {visibleItems && visibleItems.length > 0 ? (
+                              <>
+                                {visibleItems.map(di => (
+                                  <div key={di.id} className="item-detail">
+                                    <span className="item-name" title={di.item.nom}>{di.item.nom}</span>
+                                    <span className="item-qty">×{di.quantite}</span>
+                                    <span className="item-price">{di.item.prixUnitaire}DT</span>
+                                  </div>
+                                ))}
+                                {hasMore && (
+                                  <div className="items-count">
+                                    ... et {totalCount - visibleItems.length} autre{totalCount - visibleItems.length > 1 ? 's' : ''} article{totalCount - visibleItems.length > 1 ? 's' : ''}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="no-items">Aucun article</div>
                             )}
                           </>
                         );
@@ -629,7 +634,7 @@ const DemandeHistoryPage = () => {
         </div>
       )}
 
-      {/* Update Modal (existing code) */}
+      {/* Update Modal (existing code unchanged) */}
       {showUpdateModal && selectedDemande && (
         <div className="modal-overlay">
           <div className="modal-content modal-large">
