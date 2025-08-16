@@ -10,11 +10,27 @@ export default function AdminDemandesPage() {
   const [emailFilter, setEmailFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(9);
+  
+  // Delete functionality state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [demandeToDelete, setDemandeToDelete] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDemandes();
   }, []);
+
+  const showMessage = (message, type = 'success') => {
+    if (type === 'success') {
+      setSuccessMessage(message);
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } else {
+      setError(message);
+      setTimeout(() => setError(''), 5000);
+    }
+  };
 
   const fetchDemandes = async () => {
     try {
@@ -50,6 +66,46 @@ export default function AdminDemandesPage() {
     } catch (err) {
       console.error("Error fetching demandes:", err);
       setError("Erreur chargement demandes: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete single demande
+  const handleDeleteClick = (demande) => {
+    setDemandeToDelete(demande);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!demandeToDelete) return;
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const res = await fetch(`https://localhost:7101/api/admindemandes/${demandeToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Erreur lors de la suppression');
+      }
+
+      showMessage('✅ Demande supprimée avec succès!', 'success');
+      setShowDeleteModal(false);
+      setDemandeToDelete(null);
+      
+      // Refresh the list
+      await fetchDemandes();
+    } catch (err) {
+      console.error('Delete error:', err);
+      showMessage(`❌ Erreur: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -92,39 +148,23 @@ export default function AdminDemandesPage() {
   };
 
   const stats = getStatistics();
-/*
+
   const filteredDemandes = demandes.filter(demande => {
     // Status filter
     if (statusFilter && demande.statut?.toLowerCase() !== statusFilter.toLowerCase()) {
       return false;
     }
     
-    // Email filter
-    if (emailFilter && !demande.utilisateur?.email?.toLowerCase().includes(emailFilter.toLowerCase())) {
-      return false;
+    // Email filter - Updated to check both cases
+    if (emailFilter) {
+      const userEmail = demande.utilisateur?.Email || demande.utilisateur?.email;
+      if (!userEmail?.toLowerCase().includes(emailFilter.toLowerCase())) {
+        return false;
+      }
     }
     
     return true;
-  });*/
-
-
-  const filteredDemandes = demandes.filter(demande => {
-  // Status filter
-  if (statusFilter && demande.statut?.toLowerCase() !== statusFilter.toLowerCase()) {
-    return false;
-  }
-  
-  // Email filter - Updated to check both cases
-  if (emailFilter) {
-    const userEmail = demande.utilisateur?.Email || demande.utilisateur?.email;
-    console.log('User data:', demande.utilisateur);
-    if (!userEmail?.toLowerCase().includes(emailFilter.toLowerCase())) {
-      return false;
-    }
-  }
-  
-  return true;
-});
+  });
 
   // Pagination logic
   const totalPages = Math.ceil(filteredDemandes.length / itemsPerPage);
@@ -252,7 +292,7 @@ export default function AdminDemandesPage() {
     );
   }
 
-  if (error) {
+  if (error && !successMessage) {
     return (
       <div className="admin-demandes-container">
         <div className="error-message">
@@ -291,7 +331,14 @@ export default function AdminDemandesPage() {
           <h1 className="admin-demandes-title">Gestion des Demandes</h1>
         </div>
 
-        {/* Display any error messages */}
+        {/* Display success messages */}
+        {successMessage && (
+          <div className="message success">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Display error messages */}
         {error && (
           <div className="message error">
             ❌ {error}
@@ -405,7 +452,6 @@ export default function AdminDemandesPage() {
                         </span>
                         <span className="user-email">
                            {d.utilisateur?.Email || d.utilisateur?.email || 'Email non disponible'}
-    
                         </span>
                       </div>
                     </td>
@@ -442,12 +488,21 @@ export default function AdminDemandesPage() {
                       </div>
                     </td>
                     <td>
-                      <button 
-                        className="btn btn-primary"
-                        onClick={() => navigate(`/admin/demandes/${d.id}`)}
-                      >
-                        Voir détails
-                      </button>
+                      <div className="action-buttons">
+                        <button 
+                          className="btn btn-primary btn-small"
+                          onClick={() => navigate(`/admin/demandes/${d.id}`)}
+                        >
+                          👁️ Détails
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-small"
+                          onClick={() => handleDeleteClick(d)}
+                          disabled={loading}
+                        >
+                          🗑️ Supprimer
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -465,6 +520,54 @@ export default function AdminDemandesPage() {
           </div>
           <div className="pagination-controls">
             {renderPaginationButtons()}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && demandeToDelete && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-small">
+            <div className="modal-header">
+              <h3 className="modal-title">Confirmer la suppression</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="delete-warning">
+                <div className="warning-icon">⚠️</div>
+                <p>Êtes-vous sûr de vouloir supprimer cette demande ?</p>
+                <p><strong>Utilisateur:</strong> {demandeToDelete.utilisateur?.prenom} {demandeToDelete.utilisateur?.nom}</p>
+                <p><strong>Email:</strong> {demandeToDelete.utilisateur?.Email || demandeToDelete.utilisateur?.email}</p>
+                <p><strong>Catégorie:</strong> {demandeToDelete.categorie?.nom}</p>
+                <p><strong>Date:</strong> {formatDateTime(demandeToDelete.dateDemande).date}</p>
+                <div className="warning-text">
+                  Cette action est irréversible. La demande et toutes ses données associées seront définitivement supprimées.
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button 
+                className="btn btn-danger"
+                onClick={handleDeleteConfirm}
+                disabled={loading}
+              >
+                {loading ? '⏳ Suppression...' : '🗑️ Oui, supprimer'}
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={loading}
+              >
+                ❌ Annuler
+              </button>
+            </div>
           </div>
         </div>
       )}

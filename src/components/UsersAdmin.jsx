@@ -28,7 +28,7 @@ const UsersAdmin = () => {
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
 
   const roles = ['SuperAdmin', 'Admin', 'Utilisateur'];
