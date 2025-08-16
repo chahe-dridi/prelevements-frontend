@@ -10,6 +10,16 @@ const DemandeHistoryPage = () => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 6,
+    totalCount: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrevious: false
+  });
+  
   // Update modal state
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [selectedDemande, setSelectedDemande] = useState(null);
@@ -17,6 +27,10 @@ const DemandeHistoryPage = () => {
   const [updatedItems, setUpdatedItems] = useState({});
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [availableItems, setAvailableItems] = useState([]);
+
+  // Cancel modal state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [demandeToCancel, setDemandeToCancel] = useState(null);
 
   const API_BASE_URL = 'https://localhost:7101';
 
@@ -35,12 +49,22 @@ const DemandeHistoryPage = () => {
     return isNaN(d.getTime()) ? "Format de date invalide" : d.toLocaleString("fr-FR");
   };
 
-  // Fixed status handling functions - Updated to handle numeric enums properly
+  // Helper function for items display - ADDED
+  const formatItemsDisplay = (demandeItems) => {
+    if (!demandeItems || demandeItems.length === 0) return [];
+    
+    // Show max 3 items, then indicate if there are more
+    const maxVisible = 3;
+    const visibleItems = demandeItems.slice(0, maxVisible);
+    const hasMore = demandeItems.length > maxVisible;
+    
+    return { visibleItems, hasMore, totalCount: demandeItems.length };
+  };
+
+  // Fixed status handling functions
   const getStatusClass = (statut) => {
-    // Handle both string and number statut
     const statusValue = statut;
     
-    // Check for numeric enum values first
     if (statusValue === 0 || statusValue === '0' || String(statusValue).toLowerCase() === 'enattente') {
       return 'status-pending';
     }
@@ -51,15 +75,12 @@ const DemandeHistoryPage = () => {
       return 'status-rejected';
     }
     
-    console.log('Unknown status value:', statusValue, typeof statusValue); // Debug log
-    return 'status-pending'; // Default to pending for unknown statuses
+    return 'status-pending';
   };
 
   const getStatusText = (statut) => {
-    // Handle both string and number statut
     const statusValue = statut;
     
-    // Check for numeric enum values first
     if (statusValue === 0 || statusValue === '0' || String(statusValue).toLowerCase() === 'enattente') {
       return 'En Attente';
     }
@@ -70,11 +91,9 @@ const DemandeHistoryPage = () => {
       return 'Refusée';
     }
     
-    console.log('Unknown status value:', statusValue, typeof statusValue); // Debug log
     return `Statut: ${statusValue}`;
   };
 
-  // Helper function to check if status is "En Attente"
   const isStatusPending = (statut) => {
     const statusValue = statut;
     return statusValue === 0 || statusValue === '0' || String(statusValue).toLowerCase() === 'enattente';
@@ -87,7 +106,6 @@ const DemandeHistoryPage = () => {
     }, 0);
   };
 
-  // Calculate total for modal
   const calculateModalTotal = () => {
     if (!availableItems || !updatedItems) return 0;
     return Object.entries(updatedItems).reduce((total, [itemId, quantity]) => {
@@ -101,33 +119,38 @@ const DemandeHistoryPage = () => {
     }, 0);
   };
 
-  // Enhanced fetch function with better error handling
-  const fetchDemandes = async () => {
+  // Enhanced fetch function with pagination
+  const fetchDemandes = async (page = 1) => {
     try {
       setLoading(true);
       
-      console.log('Fetching demandes...');
-      const res = await fetch(`${API_BASE_URL}/api/demandes/my-demandes`, {
+      const res = await fetch(`${API_BASE_URL}/api/demandes/my-demandes?page=${page}&pageSize=${pagination.pageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       if (!res.ok) {
         const errorText = await res.text();
-        console.error('Fetch error response:', errorText);
         throw new Error(`Erreur HTTP ${res.status}: ${errorText}`);
       }
       
-      const data = await res.json();
-      console.log('Raw response data:', data); // Debug log
+      const response = await res.json();
       
-      // Log status values for debugging
-      if (data && data.length > 0) {
-        data.forEach((demande, index) => {
-          console.log(`Demande ${index} status:`, demande.statut, typeof demande.statut);
-        });
+      // Handle both paginated and non-paginated responses
+      if (response.data && response.pagination) {
+        setDemandes(response.data || []);
+        setPagination(response.pagination);
+      } else {
+        // Fallback for non-paginated response
+        setDemandes(response || []);
+        setPagination(prev => ({
+          ...prev,
+          currentPage: 1,
+          totalCount: response?.length || 0,
+          totalPages: 1,
+          hasNext: false,
+          hasPrevious: false
+        }));
       }
-      
-      setDemandes(data || []);
     } catch (err) {
       console.error('Fetch error:', err);
       showMessage(`Erreur chargement historique: ${err.message}`, 'error');
@@ -153,7 +176,7 @@ const DemandeHistoryPage = () => {
 
   useEffect(() => {
     if (userEmail && token) {
-      fetchDemandes();
+      fetchDemandes(1);
       fetchCategories();
     } else {
       setLoading(false);
@@ -166,44 +189,100 @@ const DemandeHistoryPage = () => {
     }
   }, [userEmail, token]);
 
-  // Handle category change in modal
+  // Pagination handlers
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchDemandes(newPage);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (pagination.hasPrevious) {
+      handlePageChange(pagination.currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (pagination.hasNext) {
+      handlePageChange(pagination.currentPage + 1);
+    }
+  };
+
+  // Cancel demande functionality
+  const handleCancelClick = (demande) => {
+    setDemandeToCancel(demande);
+    setShowCancelModal(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!demandeToCancel) return;
+
+    try {
+      setLoading(true);
+      
+      const res = await fetch(`${API_BASE_URL}/api/demandes/${demandeToCancel.id}/cancel`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Erreur lors de l\'annulation');
+      }
+
+      showMessage('✅ Demande annulée avec succès!', 'success');
+      setShowCancelModal(false);
+      setDemandeToCancel(null);
+      
+      // Refresh current page or go to previous if current page becomes empty
+      const currentPage = pagination.currentPage;
+      const newTotalCount = pagination.totalCount - 1;
+      const newTotalPages = Math.ceil(newTotalCount / pagination.pageSize);
+      
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        fetchDemandes(newTotalPages);
+      } else {
+        fetchDemandes(currentPage);
+      }
+    } catch (err) {
+      console.error('Cancel error:', err);
+      showMessage(`❌ Erreur: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update modal functions (existing code)
   const handleCategoryChange = (categoryId) => {
     setSelectedCategoryId(categoryId);
     
-    // Find the selected category and its items
     const selectedCategory = categories.find(c => c.id === categoryId);
     if (selectedCategory) {
       setAvailableItems(selectedCategory.items || []);
       
-      // Reset item quantities when category changes, but keep existing items if they exist in new category
       const newUpdatedItems = {};
       selectedCategory.items.forEach(item => {
-        // Keep existing quantity if item was already selected, otherwise set to 0
         newUpdatedItems[item.id] = updatedItems[item.id] || 0;
       });
       setUpdatedItems(newUpdatedItems);
     }
   };
 
-  // Open update modal
   const handleUpdateClick = (demande) => {
     setSelectedDemande(demande);
     setSelectedCategoryId(demande.categorieId);
     
-    // Find the category and set available items
     const category = categories.find(c => c.id === demande.categorieId);
     if (category) {
       setAvailableItems(category.items || []);
       
-      // Initialize updated items with current quantities and all available items
       const itemsData = {};
-      
-      // First, set all available items to 0
       category.items.forEach(item => {
         itemsData[item.id] = 0;
       });
       
-      // Then, set current demande items to their quantities
       demande.demandeItems.forEach(di => {
         itemsData[di.item.id] = di.quantite;
       });
@@ -214,7 +293,6 @@ const DemandeHistoryPage = () => {
     setShowUpdateModal(true);
   };
 
-  // Handle quantity change in modal
   const handleQuantityChange = (itemId, quantity) => {
     const qty = parseInt(quantity) || 0;
     setUpdatedItems(prev => ({
@@ -223,14 +301,12 @@ const DemandeHistoryPage = () => {
     }));
   };
 
-  // Enhanced update submit with better error handling
   const handleUpdateSubmit = async () => {
     if (!selectedDemande || !selectedCategoryId) {
       showMessage('Données manquantes pour la mise à jour.', 'error');
       return;
     }
 
-    // Filter items with quantity > 0
     const filteredItems = Object.entries(updatedItems)
       .filter(([_, qty]) => qty > 0)
       .map(([itemId, quantite]) => ({
@@ -243,12 +319,6 @@ const DemandeHistoryPage = () => {
       return;
     }
 
-    console.log('Updating demande:', {
-      id: selectedDemande.id,
-      categorieId: selectedCategoryId,
-      items: filteredItems
-    });
-
     try {
       setLoading(true);
       
@@ -256,8 +326,6 @@ const DemandeHistoryPage = () => {
         categorieId: selectedCategoryId,
         items: filteredItems
       };
-      
-      console.log('Request body:', JSON.stringify(requestBody, null, 2));
       
       const res = await fetch(`${API_BASE_URL}/api/demandes/${selectedDemande.id}`, {
         method: 'PUT',
@@ -268,20 +336,14 @@ const DemandeHistoryPage = () => {
         body: JSON.stringify(requestBody)
       });
 
-      console.log('Update response status:', res.status);
-
       if (!res.ok) {
         const errorText = await res.text();
-        console.error('Update error response:', errorText);
         throw new Error(errorText || 'Erreur lors de la mise à jour');
       }
 
-      const responseData = await res.text();
-      console.log('Update response:', responseData);
-
       showMessage('✅ Demande mise à jour avec succès!', 'success');
       handleCloseModal();
-      await fetchDemandes(); // Refresh the list
+      fetchDemandes(pagination.currentPage);
     } catch (err) {
       console.error('Update error:', err);
       showMessage(`❌ Erreur: ${err.message}`, 'error');
@@ -290,13 +352,93 @@ const DemandeHistoryPage = () => {
     }
   };
 
-  // Close modal
   const handleCloseModal = () => {
     setShowUpdateModal(false);
     setSelectedDemande(null);
     setSelectedCategoryId('');
     setAvailableItems([]);
     setUpdatedItems({});
+  };
+
+  // Pagination component
+  const PaginationComponent = () => {
+    if (pagination.totalPages <= 1) return null;
+
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, pagination.currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(pagination.totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    return (
+      <div className="pagination-container">
+        <div className="pagination-info">
+          Affichage {((pagination.currentPage - 1) * pagination.pageSize) + 1} à {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalCount)} sur {pagination.totalCount} demandes
+        </div>
+        
+        <div className="pagination-controls">
+          <button 
+            className="pagination-btn"
+            onClick={handlePreviousPage}
+            disabled={!pagination.hasPrevious || loading}
+          >
+            ← Précédent
+          </button>
+          
+          {startPage > 1 && (
+            <>
+              <button 
+                className="pagination-number"
+                onClick={() => handlePageChange(1)}
+                disabled={loading}
+              >
+                1
+              </button>
+              {startPage > 2 && <span className="pagination-ellipsis">...</span>}
+            </>
+          )}
+          
+          {pageNumbers.map(pageNum => (
+            <button
+              key={pageNum}
+              className={`pagination-number ${pagination.currentPage === pageNum ? 'active' : ''}`}
+              onClick={() => handlePageChange(pageNum)}
+              disabled={loading}
+            >
+              {pageNum}
+            </button>
+          ))}
+          
+          {endPage < pagination.totalPages && (
+            <>
+              {endPage < pagination.totalPages - 1 && <span className="pagination-ellipsis">...</span>}
+              <button 
+                className="pagination-number"
+                onClick={() => handlePageChange(pagination.totalPages)}
+                disabled={loading}
+              >
+                {pagination.totalPages}
+              </button>
+            </>
+          )}
+          
+          <button 
+            className="pagination-btn"
+            onClick={handleNextPage}
+            disabled={!pagination.hasNext || loading}
+          >
+            Suivant →
+          </button>
+        </div>
+      </div>
+    );
   };
 
   if (loading && (userEmail && token)) {
@@ -329,14 +471,18 @@ const DemandeHistoryPage = () => {
       <div className="history-header">
         <h1 className="history-title">Mon Historique de Demandes</h1>
         <p className="history-subtitle">Consultez et modifiez vos demandes</p>
+        
+        {pagination.totalCount > 0 && (
+          <div className="history-stats">
+            <span className="stats-item">
+              📊 Total: <strong>{pagination.totalCount}</strong> demandes
+            </span>
+            <span className="stats-item">
+              📄 Page: <strong>{pagination.currentPage}</strong> sur <strong>{pagination.totalPages}</strong>
+            </span>
+          </div>
+        )}
       </div>
-
-      {/* Temporary Debug Section - Remove after fixing */}
-      {demandes.length > 0 && (
-        <div className="message info">
-          <strong>Debug Info:</strong> First demande status: {JSON.stringify(demandes[0].statut)} (type: {typeof demandes[0].statut})
-        </div>
-      )}
 
       {message && (
         <div className={`message ${messageType}`}>
@@ -351,66 +497,139 @@ const DemandeHistoryPage = () => {
           <p>Vous n'avez pas encore créé de demandes.</p>
         </div>
       ) : (
-        <div className="demandes-grid">
-          {demandes.map(demande => (
-            <div key={demande.id} className="demande-card">
-              <div className="card-header">
-                <div className="card-date">{formatDate(demande.dateDemande)}</div>
-                <div className={`status-badge ${getStatusClass(demande.statut)}`}>
-                  {getStatusText(demande.statut)}
-                </div>
-              </div>
-
-              <div className="card-content">
-                <div className="card-info">
-                  <h3 className="card-title">Catégorie: {demande.categorie?.nom}</h3>
-                  <p className="card-description">{demande.categorie?.description}</p>
-                </div>
-
-                <div className="card-items">
-                  <h4 className="items-title">Articles demandés:</h4>
-                  <div className="items-list">
-                    {demande.demandeItems?.map(di => (
-                      <div key={di.id} className="item-detail">
-                        <span className="item-name">{di.item.nom}</span>
-                        <span className="item-qty">Qty: {di.quantite}</span>
-                        <span className="item-price">{di.item.prixUnitaire}DT</span>
-                      </div>
-                    ))}
+        <>
+          <div className="demandes-grid">
+            {demandes.map(demande => (
+              <div key={demande.id} className="demande-card">
+                <div className="card-header">
+                  <div className="card-date">{formatDate(demande.dateDemande)}</div>
+                  <div className={`status-badge ${getStatusClass(demande.statut)}`}>
+                    {getStatusText(demande.statut)}
                   </div>
                 </div>
 
-                <div className="card-total">
-                  <strong>Total: {calculateTotal(demande.demandeItems).toFixed(2)}DT</strong>
+                <div className="card-content">
+                  <div className="card-info">
+                    <h3 className="card-title">Catégorie: {demande.categorie?.nom}</h3>
+                    <p className="card-description">{demande.categorie?.description}</p>
+                  </div>
+
+                  {/* ENHANCED ITEMS SECTION */}
+                  <div className="card-items">
+                    <h4 className="items-title">Articles demandés:</h4>
+                    <div className="items-list">
+                      {(() => {
+                        const { visibleItems, hasMore, totalCount } = formatItemsDisplay(demande.demandeItems);
+                        return (
+                          <>
+                            {visibleItems.map(di => (
+                              <div key={di.id} className="item-detail">
+                                <span className="item-name" title={di.item.nom}>{di.item.nom}</span>
+                                <span className="item-qty">×{di.quantite}</span>
+                                <span className="item-price">{di.item.prixUnitaire}DT</span>
+                              </div>
+                            ))}
+                            {hasMore && (
+                              <div className="items-count">
+                                ... et {totalCount - visibleItems.length} autre{totalCount - visibleItems.length > 1 ? 's' : ''} article{totalCount - visibleItems.length > 1 ? 's' : ''}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  <div className="card-total">
+                    <strong>Total: {calculateTotal(demande.demandeItems).toFixed(2)}DT</strong>
+                  </div>
+                </div>
+
+                <div className="card-actions">
+                  {isStatusPending(demande.statut) ? (
+                    <div className="action-buttons">
+                      <button 
+                        className="btn btn-update"
+                        onClick={() => handleUpdateClick(demande)}
+                        disabled={loading}
+                      >
+                        ✏️ Modifier
+                      </button>
+                      <button 
+                        className="btn btn-cancel"
+                        onClick={() => handleCancelClick(demande)}
+                        disabled={loading}
+                      >
+                        🗑️ Annuler
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="status-info">
+                      {getStatusText(demande.statut) === 'Validée' && (
+                        <span className="status-text">✅ Demande validée</span>
+                      )}
+                      {getStatusText(demande.statut) === 'Refusée' && (
+                        <span className="status-text">❌ Demande refusée</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="card-actions">
-                {isStatusPending(demande.statut) ? (
-                  <button 
-                    className="btn btn-update"
-                    onClick={() => handleUpdateClick(demande)}
-                    disabled={loading}
-                  >
-                    ✏️ Modifier
-                  </button>
-                ) : (
-                  <div className="status-info">
-                    {getStatusText(demande.statut) === 'Validée' && (
-                      <span className="status-text">✅ Demande validée</span>
-                    )}
-                    {getStatusText(demande.statut) === 'Refusée' && (
-                      <span className="status-text">❌ Demande refusée</span>
-                    )}
-                  </div>
-                )}
+          <PaginationComponent />
+        </>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && demandeToCancel && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-small">
+            <div className="modal-header">
+              <h3 className="modal-title">Confirmer l'annulation</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowCancelModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="cancel-warning">
+                <div className="warning-icon">⚠️</div>
+                <p>Êtes-vous sûr de vouloir annuler cette demande ?</p>
+                <p><strong>Catégorie:</strong> {demandeToCancel.categorie?.nom}</p>
+                <p><strong>Date:</strong> {formatDate(demandeToCancel.dateDemande)}</p>
+                <p><strong>Total:</strong> {calculateTotal(demandeToCancel.demandeItems).toFixed(2)}DT</p>
+                <div className="warning-text">
+                  Cette action est irréversible. La demande sera définitivement supprimée.
+                </div>
               </div>
             </div>
-          ))}
+
+            <div className="modal-actions">
+              <button 
+                className="btn btn-danger"
+                onClick={handleCancelConfirm}
+                disabled={loading}
+              >
+                {loading ? '⏳ Annulation...' : '🗑️ Oui, annuler la demande'}
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowCancelModal(false)}
+                disabled={loading}
+              >
+                ❌ Non, garder la demande
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Enhanced Update Modal */}
+      {/* Update Modal (existing code) */}
       {showUpdateModal && selectedDemande && (
         <div className="modal-overlay">
           <div className="modal-content modal-large">
@@ -431,7 +650,6 @@ const DemandeHistoryPage = () => {
                 <p><strong>Catégorie actuelle:</strong> {selectedDemande.categorie?.nom}</p>
               </div>
 
-              {/* Category Selection */}
               <div className="modal-section">
                 <h4>Choisir une catégorie:</h4>
                 <select 
@@ -452,7 +670,6 @@ const DemandeHistoryPage = () => {
                 )}
               </div>
 
-              {/* Items Selection */}
               {availableItems.length > 0 && (
                 <div className="modal-section">
                   <h4>Sélectionner les articles:</h4>
@@ -477,7 +694,6 @@ const DemandeHistoryPage = () => {
                     ))}
                   </div>
                   
-                  {/* Quick actions for all items */}
                   <div className="modal-quick-actions">
                     <button 
                       type="button"
@@ -509,7 +725,6 @@ const DemandeHistoryPage = () => {
                 </div>
               )}
 
-              {/* Summary */}
               <div className="modal-summary">
                 <div className="summary-row">
                   <span>Articles sélectionnés:</span>
@@ -541,7 +756,7 @@ const DemandeHistoryPage = () => {
                 {loading ? '⏳ Mise à jour...' : '💾 Sauvegarder les modifications'}
               </button>
               <button 
-                className="btn btn-cancel"
+                className="btn btn-secondary"
                 onClick={handleCloseModal}
                 disabled={loading}
               >

@@ -25,8 +25,17 @@ function Navbar() {
         navigate('/login');
     };
 
-    // Navbar links for logged-in users
-    const loggedInLinks = (
+    const handleDropdownClick = (action) => {
+        setDropdownOpen(false);
+        if (action === 'profile') {
+            navigate('/profile');
+        } else if (action === 'logout') {
+            handleLogout();
+        }
+    };
+
+    // User dropdown component
+    const UserDropdown = () => (
         <div className="user-dropdown-container" ref={dropdownRef}>
             <button
                 onClick={() => setDropdownOpen(prev => !prev)}
@@ -37,78 +46,123 @@ function Navbar() {
 
             {dropdownOpen && (
                 <div className="dropdown-menu">
-                  
-                     <button
-                        onClick={() => {
-                            setDropdownOpen(false);
-                            navigate('/profile');
-                        }}
-                        className="dropdown-logout"
+                    <button
+                        onClick={() => handleDropdownClick('profile')}
+                        className="dropdown-item"
                     >
-                        Profile
+                        👤 Profile
                     </button>
                     <button
-                        onClick={handleLogout}
-                        className="dropdown-logout"
+                        onClick={() => handleDropdownClick('logout')}
+                        className="dropdown-item dropdown-logout"
                     >
-                        Logout
+                        🚪 Logout
                     </button>
                 </div>
             )}
         </div>
     );
 
-    return (
-    <nav className={`navbar ${(userRole === "SuperAdmin" || userRole === "Admin") ? 'admin' : 'user'}`}>
-        {(userRole === "SuperAdmin" || userRole === "Admin") ? (
-            <>
-                <Link className="navbar-link" to="/admin/home">Home</Link>
-
-                <Link className="navbar-link bold" to="/admin/dashboard">
-                    Admin Dashboard
-                </Link>
-               
-                <Link className="navbar-link" to="/admin/demandes">Gestion des Demandes</Link>
-                <Link className="navbar-link" to="/demandes">Faire une demande</Link>
-                <Link className="navbar-link" to="/demandes/history">Mon Historique</Link>
-
-                 
-                {userRole === 'SuperAdmin' && (
-                    <Link to="/admin/users" className="navbar-link manage-users">
-                        Manage Users
+    // Navigation links based on user role
+    const renderNavigationLinks = () => {
+        if (!userRole) {
+            // Not logged in
+            return (
+                <>
+                    <Link className="navbar-link navbar-brand" to="/">
+                        🏠 Home
                     </Link>
-                )}
-                {userRole && loggedInLinks}
-            </>
-        ) : (
+                    <div className="navbar-spacer"></div>
+                    <Link className="navbar-link" to="/register">
+                        📝 Register
+                    </Link>
+                    <Link className="navbar-link" to="/login">
+                        🔑 Login
+                    </Link>
+                </>
+            );
+        }
+
+        if (userRole === "SuperAdmin" || userRole === "Admin") {
+            // Admin/SuperAdmin navigation
+            return (
+                <>
+                    <Link className="navbar-link navbar-brand" to="/admin/home">
+                        🏠 Home
+                    </Link>
+                    <Link className="navbar-link admin-dashboard" to="/admin/dashboard">
+                        📊 Admin Dashboard
+                    </Link>
+                    <Link className="navbar-link" to="/admin/demandes">
+                        📋 Gestion des Demandes
+                    </Link>
+                    <Link className="navbar-link" to="/demandes">
+                        ➕ Faire une demande
+                    </Link>
+                    <Link className="navbar-link" to="/demandes/history">
+                        📜 Mon Historique
+                    </Link>
+                    
+                    {userRole === 'SuperAdmin' && (
+                        <Link to="/admin/users" className="navbar-link superadmin-link">
+                            👥 Manage Users
+                        </Link>
+                    )}
+                    
+                    <div className="navbar-spacer"></div>
+                    <UserDropdown />
+                </>
+            );
+        }
+
+        if (userRole === "Utilisateur") {
+            // Regular user navigation
+            return (
+                <>
+                    <Link className="navbar-link navbar-brand" to="/">
+                        🏠 Home
+                    </Link>
+                    <Link className="navbar-link" to="/demandes">
+                        ➕ Faire une demande
+                    </Link>
+                    <Link className="navbar-link" to="/demandes/historique">
+                        📜 Mon Historique
+                    </Link>
+                    
+                    <div className="navbar-spacer"></div>
+                    <UserDropdown />
+                </>
+            );
+        }
+
+        // Fallback for other roles
+        return (
             <>
-                <Link className="navbar-link bold" to="/">
-                    Home
+                <Link className="navbar-link navbar-brand" to="/">
+                    🏠 Home
                 </Link>
-                {!userRole && (
-                    <>
-                        <Link className="navbar-link" to="/register">
-                            Register
-                        </Link>
-                        <Link className="navbar-link" to="/login">
-                            Login
-                        </Link>
-                    </>
-                )}
-                {userRole && loggedInLinks}
+                <div className="navbar-spacer"></div>
+                <UserDropdown />
             </>
-        )}
+        );
+    };
 
-        {userRole === "Utilisateur" && (
-                     
-            <>
-                <Link className="navbar-link" to="/demandes">Faire une demande</Link>
-                <Link className="navbar-link" to="/demandes/historique">Mon Historique</Link>
-            </>
-        )}
+    return (
+        <nav className={`navbar ${getNavbarClass(userRole)}`}>
+            {renderNavigationLinks()}
+        </nav>
+    );
+}
 
-    </nav>
-);
+// Helper function to determine navbar class
+function getNavbarClass(userRole) {
+    if (userRole === "SuperAdmin" || userRole === "Admin") {
+        return 'admin';
+    }
+    if (userRole === "Utilisateur") {
+        return 'user';
+    }
+    return 'guest';
 }
 
 export default Navbar;
