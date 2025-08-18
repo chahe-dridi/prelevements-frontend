@@ -114,21 +114,26 @@ export default function DemandeDetailsPage() {
     }
   }, [paymentInfo.statut]);
 
-  // ...existing code...
-
-  // Safe date formatter for PDF (date only, no time)
+ 
   const formatDateOnly = (dateStr) => {
     if (!dateStr) return "Non renseignée";
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? "Format de date invalide" : d.toLocaleDateString("fr-FR");
   };
 
-  // PDF Export Function
-  // ...existing code...
-
-  // PDF Export Function
- // ...existing code...
-
+ 
+    const formatDateOnlyShortYear = (dateStr) => {
+      if (!dateStr) return "Non renseignée";
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "Format de date invalide";
+      
+      const day = d.getDate().toString().padStart(2, '0');
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      const year = d.getFullYear().toString().slice(-2); // Get last 2 digits of year
+      
+      return `${day}    ${month}    ${year}`;
+    };
+ 
   // PDF Export Function
   const exportToPDF = () => {
     if (!demande) {
@@ -144,7 +149,7 @@ export default function DemandeDetailsPage() {
 
     try {
       const doc = new jsPDF();
-      let yPosition = 20;
+      let yPosition = 50;
 
       // Set default font
       doc.setFontSize(12);
@@ -152,43 +157,89 @@ export default function DemandeDetailsPage() {
 
       // COMPTE PAIEMENT
       yPosition += 10;
-      doc.text(demande.paiement?.comptePaiement || paymentInfo.comptePaiement, 20, yPosition);
-      
+      //doc.text(demande.paiement?.comptePaiement || paymentInfo.comptePaiement, 30, yPosition);
+
+
+        const comptePaiementRaw = demande.paiement?.comptePaiement || paymentInfo.comptePaiement;
+        const comptePaiementFormatted = comptePaiementRaw.length > 2
+          ? `${comptePaiementRaw.slice(0, 2)}    ${comptePaiementRaw.slice(2)}`
+          : comptePaiementRaw;
+        doc.text(comptePaiementFormatted, 31, yPosition);
+
+
       // EFFECTUE PAR
-      yPosition += 10;
-      doc.text(demande.paiement?.effectuePar || paymentInfo.effectuePar, 20, yPosition);
-      
-      // Client name + Category + Items all on the same line
-      yPosition += 15;
+      yPosition += 17;
+   
+    
+      doc.setFont(undefined, 'bold');
+      doc.text(demande.paiement?.effectuePar || paymentInfo.effectuePar, 43, yPosition);
+      doc.setFont(undefined, 'normal'); // Reset to normal font
+
+            // Client name + Category + Items all on the same line
+      yPosition += 13;
       const clientName = `${demande.utilisateur?.prenom || ''} ${demande.utilisateur?.nom || ''}`.trim();
       let completeLine = clientName;
-      
+
       // Add category
       if (demande.categorie?.nom) {
         completeLine += ` ${demande.categorie.nom}`;
       }
-      
+
       // Add items
       if (demande.demandeItems && demande.demandeItems.length > 0) {
         const itemsList = demande.demandeItems.map(item => `${item.item.nom} ${item.quantite}`).join(' ');
         completeLine += ` ${itemsList}`;
       }
-      
-      doc.text(completeLine, 20, yPosition);
-      
+
+      // Split text if it's too long
+      const maxWidthf = 100; // Adjust this value based on your page layout
+      const splitTextf = doc.splitTextToSize(completeLine, maxWidthf);
+
+      // Handle each line separately with different x positions
+      if (splitTextf.length > 0) {
+        doc.text(splitTextf[0], 43, yPosition); // First line at x=43
+      }
+      if (splitTextf.length > 1) {
+        for (let i = 1; i < splitTextf.length; i++) {
+          doc.text(splitTextf[i], 10, yPosition + (i * 5)); // Subsequent lines at x=38 (5 units less)
+        }
+      }
+
       // Total only
-      yPosition += 15;
+      yPosition += 25;
       const totalAmount = calculateTotal();
-      doc.text(`${totalAmount.toFixed(2)}DT`, 20, yPosition);
-      
+      const formattedAmount = totalAmount % 1 === 0 
+        ? totalAmount.toString() 
+        : totalAmount.toFixed(3);
+      doc.setFont(undefined, 'bold');
+      doc.text(`${formattedAmount}DT`, 80, yPosition);
+      doc.setFont(undefined, 'normal'); // Reset to normal font    
       // Montant en Lettres
-      yPosition += 10;
-      const montantEnLettres = demande.paiement?.montantEnLettres || paymentInfo.montantEnLettres || convertAmountToFrench(totalAmount);
-      doc.text(montantEnLettres, 20, yPosition);
-      
+  
+    // Montant en Lettres
+        yPosition += 14;
+        const montantEnLettres = demande.paiement?.montantEnLettres || paymentInfo.montantEnLettres || convertAmountToFrench(totalAmount);
+
+        // Split text to fit within page width (adjust maxWidth as needed)
+        const maxWidth = 103; // Adjust this value based on your page layout
+        const splitText = doc.splitTextToSize(montantEnLettres, maxWidth);
+
+        // Limit to only 2 lines
+        const limitedText = splitText.slice(0, 2);
+
+        // Handle each line separately with different x positions
+        if (limitedText.length > 0) {
+          doc.text(limitedText[0], 38, yPosition); // First line at x=38
+        }
+        if (limitedText.length > 1) {
+          doc.text(limitedText[1], 10, yPosition + 7); // Second line at x=25 (5 units less)
+        }
+ 
+
       // Date at the end (date only, no time)
-      yPosition += 15;
-      doc.text(formatDateOnly(demande.dateDemande), 20, yPosition);
+      yPosition += 27;
+    doc.text(formatDateOnlyShortYear(demande.dateDemande), 41, yPosition);
+
 
       const fileName = `Demande_${demande.utilisateur?.nom}_${demande.utilisateur?.prenom}_${new Date().getTime()}.pdf`;
       doc.save(fileName);
@@ -198,15 +249,6 @@ export default function DemandeDetailsPage() {
       alert('Erreur lors de la génération du PDF');
     }
   };
-
-// ...existing code...
-
-// ...existing code...
-// ...existing code...
-
-// ...existing code...
-
-// ...existing code...
 
   useEffect(() => {
     fetch(`https://localhost:7101/api/admindemandes/${id}`, {
