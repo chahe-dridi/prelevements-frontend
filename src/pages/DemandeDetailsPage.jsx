@@ -164,15 +164,15 @@ export default function DemandeDetailsPage() {
         const comptePaiementFormatted = comptePaiementRaw.length > 2
           ? `${comptePaiementRaw.slice(0, 2)}    ${comptePaiementRaw.slice(2)}`
           : comptePaiementRaw;
-        doc.text(comptePaiementFormatted, 31, yPosition);
+        doc.text(comptePaiementFormatted, 62, yPosition+1);
 
 
       // EFFECTUE PAR
-      yPosition += 17;
+      yPosition += 19;
    
     
       doc.setFont(undefined, 'bold');
-      doc.text(demande.paiement?.effectuePar || paymentInfo.effectuePar, 43, yPosition);
+      doc.text(demande.paiement?.effectuePar || paymentInfo.effectuePar, 73, yPosition);
       doc.setFont(undefined, 'normal'); // Reset to normal font
 
             // Client name + Category + Items all on the same line
@@ -197,11 +197,11 @@ export default function DemandeDetailsPage() {
 
       // Handle each line separately with different x positions
       if (splitTextf.length > 0) {
-        doc.text(splitTextf[0], 43, yPosition); // First line at x=43
+        doc.text(splitTextf[0], 70, yPosition); // First line at x=43
       }
       if (splitTextf.length > 1) {
         for (let i = 1; i < splitTextf.length; i++) {
-          doc.text(splitTextf[i], 10, yPosition + (i * 5)); // Subsequent lines at x=38 (5 units less)
+          doc.text(splitTextf[i], 40  , yPosition + (i * 7)); // Subsequent lines at x=38 (5 units less)
         }
       }
 
@@ -212,7 +212,7 @@ export default function DemandeDetailsPage() {
         ? totalAmount.toString() 
         : totalAmount.toFixed(3);
       doc.setFont(undefined, 'bold');
-      doc.text(`${formattedAmount}DT`, 80, yPosition);
+      doc.text(`${formattedAmount}DT`, 100, yPosition);
       doc.setFont(undefined, 'normal'); // Reset to normal font    
       // Montant en Lettres
   
@@ -221,7 +221,7 @@ export default function DemandeDetailsPage() {
         const montantEnLettres = demande.paiement?.montantEnLettres || paymentInfo.montantEnLettres || convertAmountToFrench(totalAmount);
 
         // Split text to fit within page width (adjust maxWidth as needed)
-        const maxWidth = 103; // Adjust this value based on your page layout
+        const maxWidth = 100; // Adjust this value based on your page layout
         const splitText = doc.splitTextToSize(montantEnLettres, maxWidth);
 
         // Limit to only 2 lines
@@ -229,16 +229,16 @@ export default function DemandeDetailsPage() {
 
         // Handle each line separately with different x positions
         if (limitedText.length > 0) {
-          doc.text(limitedText[0], 38, yPosition); // First line at x=38
+          doc.text(limitedText[0], 70, yPosition); // First line at x=38
         }
         if (limitedText.length > 1) {
-          doc.text(limitedText[1], 10, yPosition + 7); // Second line at x=25 (5 units less)
+          doc.text(limitedText[1], 40, yPosition + 7); // Second line at x=25 (5 units less)
         }
  
 
       // Date at the end (date only, no time)
       yPosition += 27;
-    doc.text(formatDateOnlyShortYear(demande.dateDemande), 41, yPosition);
+      doc.text(formatDateOnlyShortYear(demande.dateDemande), 69, yPosition);
 
 
       const fileName = `Demande_${demande.utilisateur?.nom}_${demande.utilisateur?.prenom}_${new Date().getTime()}.pdf`;
