@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -9,15 +9,19 @@ export default function DemandeDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
+  const inputRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const isClickingRef = useRef(false);
 
   const [demande, setDemande] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [itemPrices, setItemPrices] = useState({});
-  const [favoredUsers, setFavoredUsers] = useState([]); // New state for favored users
-  const [filteredUsers, setFilteredUsers] = useState([]); // New state for filtered users
-  const [userSearchTerm, setUserSearchTerm] = useState(""); // New state for search
-  const [showUserDropdown, setShowUserDropdown] = useState(false); // New state for dropdown
+  const [itemDescriptions, setItemDescriptions] = useState({});
+  const [favoredUsers, setFavoredUsers] = useState([]);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const [paymentInfo, setPaymentInfo] = useState({
     comptePaiement: "00410562",
     montantEnLettres: "",
@@ -32,6 +36,19 @@ export default function DemandeDetailsPage() {
     { value: "Refusee", label: "Refusée", color: "#dc2626" }
   ];
 
+  // Memoized filtered users to prevent unnecessary re-calculations
+  const filteredUsers = useMemo(() => {
+    if (userSearchTerm.trim() === "") {
+      return favoredUsers;
+    }
+    const searchLower = userSearchTerm.toLowerCase();
+    return favoredUsers.filter(user =>
+      user.fullName?.toLowerCase().includes(searchLower) ||
+      user.nom?.toLowerCase().includes(searchLower) ||
+      user.prenom?.toLowerCase().includes(searchLower)
+    );
+  }, [userSearchTerm, favoredUsers]);
+
   // Load favored users on component mount
   useEffect(() => {
     const loadFavoredUsers = async () => {
@@ -43,15 +60,15 @@ export default function DemandeDetailsPage() {
         if (response.ok) {
           const users = await response.json();
           setFavoredUsers(users);
-          setFilteredUsers(users);
           
           // Set default user if available and no existing value
           if (users.length > 0 && !paymentInfo.effectuePar) {
-            const defaultUser = users.find(u => u.nom.toLowerCase() === 'toufik') || users[0];
+            const defaultUser = users.find(u => u.nom?.toLowerCase() === 'toufik') || users[0];
             setPaymentInfo(prev => ({
               ...prev,
-              effectuePar: defaultUser.fullName
+              effectuePar: defaultUser.fullName || `${defaultUser.prenom} ${defaultUser.nom}`
             }));
+            setSelectedUserId(defaultUser.id);
           }
         }
       } catch (error) {
@@ -62,53 +79,104 @@ export default function DemandeDetailsPage() {
     loadFavoredUsers();
   }, [token]);
 
-  // Filter users based on search term
-  useEffect(() => {
-    if (userSearchTerm.trim() === "") {
-      setFilteredUsers(favoredUsers);
-    } else {
-      const searchLower = userSearchTerm.toLowerCase();
-      const filtered = favoredUsers.filter(user =>
-        user.fullName.toLowerCase().includes(searchLower) ||
-        user.nom.toLowerCase().includes(searchLower) ||
-        user.prenom.toLowerCase().includes(searchLower)
-      );
-      setFilteredUsers(filtered);
-    }
-  }, [userSearchTerm, favoredUsers]);
-
-  // Handle user selection
-  const handleUserSelect = (user) => {
+  // Handle user selection from dropdown
+  const handleUserSelect = useCallback((user) => {
+    const fullName = user.fullName || `${user.prenom} ${user.nom}`;
     setPaymentInfo(prev => ({
       ...prev,
-      effectuePar: user.fullName
+      effectuePar: fullName
     }));
-    setUserSearchTerm("");
+    setUserSearchTerm(fullName);
+    setSelectedUserId(user.id);
     setShowUserDropdown(false);
-  };
+    isClickingRef.current = false;
+    
+    // Restore focus after a small delay
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        // Move cursor to end
+        const length = inputRef.current.value.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
+    }, 10);
+  }, []);
 
-  // Handle search input change
-  const handleUserSearchChange = (e) => {
+  // Handle search input change - stable function
+  const handleUserSearchChange = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
     const value = e.target.value;
     setUserSearchTerm(value);
-    setPaymentInfo(prev => ({
-      ...prev,
-      effectuePar: value
-    }));
+    setSelectedUserId(null);
+    if (!showUserDropdown) {
+      setShowUserDropdown(true);
+    }
+  }, [showUserDropdown]);
+
+  // Handle input blur - stable function
+  const handleUserSearchBlur = useCallback((e) => {
+    // Don't blur if we're clicking on dropdown
+    if (isClickingRef.current) {
+      e.preventDefault();
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      return;
+    }
+
+    // Small delay to handle click events
+    setTimeout(() => {
+      if (!isClickingRef.current) {
+        setShowUserDropdown(false);
+        // Update paymentInfo only if we have a value
+        if (userSearchTerm.trim()) {
+          setPaymentInfo(prev => ({
+            ...prev,
+            effectuePar: userSearchTerm
+          }));
+        }
+      }
+    }, 200);
+  }, [userSearchTerm]);
+
+  // Handle input focus - stable function
+  const handleUserSearchFocus = useCallback(() => {
     setShowUserDropdown(true);
-  };
+  }, []);
+
+  // Handle dropdown mouse events
+  const handleDropdownMouseDown = useCallback(() => {
+    isClickingRef.current = true;
+  }, []);
+
+  const handleDropdownMouseUp = useCallback(() => {
+    setTimeout(() => {
+      isClickingRef.current = false;
+    }, 100);
+  }, []);
 
   // Handle click outside dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('.user-search-container')) {
+      const clickedElement = event.target;
+      const isInputClick = inputRef.current && inputRef.current.contains(clickedElement);
+      const isDropdownClick = dropdownRef.current && dropdownRef.current.contains(clickedElement);
+      
+      if (!isInputClick && !isDropdownClick) {
         setShowUserDropdown(false);
+        if (userSearchTerm.trim()) {
+          setPaymentInfo(prev => ({
+            ...prev,
+            effectuePar: userSearchTerm
+          }));
+        }
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [userSearchTerm]);
 
   // Safe date formatter
   const formatDate = (dateStr) => {
@@ -144,21 +212,29 @@ export default function DemandeDetailsPage() {
   };
 
   // Calculate total amount using current prices
-  const calculateTotal = () => {
+  const calculateTotal = useCallback(() => {
     if (!demande?.demandeItems) return 0;
     return demande.demandeItems.reduce((total, item) => {
       const price = item.prixUnitaire || itemPrices[item.id] || 0;
       return total + (item.quantite * price);
     }, 0);
-  };
+  }, [demande?.demandeItems, itemPrices]);
 
   // Handle price changes for items
-  const handlePriceChange = (itemId, price) => {
+  const handlePriceChange = useCallback((itemId, price) => {
     setItemPrices(prev => ({
       ...prev,
       [itemId]: parseFloat(price) || 0
     }));
-  };
+  }, []);
+
+  // Handle description changes for items
+  const handleDescriptionChange = useCallback((itemId, description) => {
+    setItemDescriptions(prev => ({
+      ...prev,
+      [itemId]: description
+    }));
+  }, []);
 
   // Check if payment fields should be shown in modal
   const shouldShowPaymentFields = () => {
@@ -182,8 +258,9 @@ export default function DemandeDetailsPage() {
       // Set default effectuePar if not already set
       let defaultEffectuePar = demande.paiement?.effectuePar || "";
       if (!defaultEffectuePar && favoredUsers.length > 0) {
-        const defaultUser = favoredUsers.find(u => u.nom.toLowerCase() === 'toufik') || favoredUsers[0];
-        defaultEffectuePar = defaultUser.fullName;
+        const defaultUser = favoredUsers.find(u => u.nom?.toLowerCase() === 'toufik') || favoredUsers[0];
+        defaultEffectuePar = defaultUser.fullName || `${defaultUser.prenom} ${defaultUser.nom}`;
+        setSelectedUserId(defaultUser.id);
       }
       
       setPaymentInfo(prev => ({
@@ -192,8 +269,13 @@ export default function DemandeDetailsPage() {
         effectuePar: defaultEffectuePar,
         statut: demande.statut || ""
       }));
+
+      // Only set search term if there's existing payment data
+      if (demande.paiement?.effectuePar) {
+        setUserSearchTerm(demande.paiement.effectuePar);
+      }
     }
-  }, [demande, itemPrices, favoredUsers]);
+  }, [demande, calculateTotal, favoredUsers]);
 
   // Reset payment fields when status changes
   useEffect(() => {
@@ -206,7 +288,7 @@ export default function DemandeDetailsPage() {
         montantEnLettres: prev.montantEnLettres || amountInFrench
       }));
     }
-  }, [paymentInfo.statut]);
+  }, [paymentInfo.statut, calculateTotal]);
 
   const formatDateOnly = (dateStr) => {
     if (!dateStr) return "Non renseignée";
@@ -269,7 +351,11 @@ export default function DemandeDetailsPage() {
       }
 
       if (demande.demandeItems && demande.demandeItems.length > 0) {
-        const itemsList = demande.demandeItems.map(item => `${item.item?.nom || 'Article'} ${item.quantite}`).join(' ');
+        const itemsList = demande.demandeItems.map(item => {
+          const description = item.description || itemDescriptions[item.id] || '';
+          const itemText = `${item.item?.nom || 'Article'} ${item.quantite}`;
+          return description ? `${itemText} (${description})` : itemText;
+        }).join(' ');
         completeLine += ` ${itemsList}`;
       }
 
@@ -334,16 +420,21 @@ export default function DemandeDetailsPage() {
       .then(data => {
         setDemande(data);
         
-        // Initialize item prices from existing data
+        // Initialize item prices and descriptions from existing data
         const initialPrices = {};
+        const initialDescriptions = {};
         if (data.demandeItems) {
           data.demandeItems.forEach(item => {
             if (item.prixUnitaire) {
               initialPrices[item.id] = item.prixUnitaire;
             }
+            if (item.description) {
+              initialDescriptions[item.id] = item.description;
+            }
           });
         }
         setItemPrices(initialPrices);
+        setItemDescriptions(initialDescriptions);
         
         const total = data.demandeItems?.reduce((sum, item) => 
           sum + (item.quantite * (item.prixUnitaire || 0)), 0) || 0;
@@ -356,6 +447,12 @@ export default function DemandeDetailsPage() {
           effectuePar: data.paiement?.effectuePar || prev.effectuePar,
           statut: data.statut || ""
         }));
+
+        // Set userSearchTerm to match the effectuePar value only if payment exists
+        if (data.paiement?.effectuePar) {
+          setUserSearchTerm(data.paiement.effectuePar);
+        }
+
         setLoading(false);
       })
       .catch(err => {
@@ -396,12 +493,15 @@ export default function DemandeDetailsPage() {
   };
 
   const handleAccept = () => {
+    // Use userSearchTerm if available, otherwise fallback to paymentInfo.effectuePar
+    const finalEffectuePar = userSearchTerm.trim() || paymentInfo.effectuePar;
+    
     if (!paymentInfo.montantEnLettres.trim()) {
       alert("Veuillez remplir le montant en lettres");
       return;
     }
 
-    if (!paymentInfo.effectuePar.trim()) {
+    if (!finalEffectuePar.trim()) {
       alert("Veuillez sélectionner un utilisateur pour 'Effectué par'");
       return;
     }
@@ -416,12 +516,14 @@ export default function DemandeDetailsPage() {
       return;
     }
 
-    // Prepare the request body with item prices
+    // Prepare the request body with item prices and descriptions
     const requestBody = {
       ...paymentInfo,
+      effectuePar: finalEffectuePar,
       demandeItems: demande.demandeItems.map(item => ({
         id: item.id,
-        prixUnitaire: item.prixUnitaire || itemPrices[item.id]
+        prixUnitaire: item.prixUnitaire || itemPrices[item.id],
+        description: item.description || itemDescriptions[item.id] || ""
       }))
     };
 
@@ -449,6 +551,9 @@ export default function DemandeDetailsPage() {
   };
 
   const handleUpdate = () => {
+    // Use userSearchTerm if available, otherwise fallback to paymentInfo.effectuePar
+    const finalEffectuePar = userSearchTerm.trim() || paymentInfo.effectuePar;
+    
     if (paymentInfo.statut === 'Validee') {
       if (!paymentInfo.montantEnLettres.trim()) {
         alert("Veuillez remplir le montant en lettres pour valider la demande");
@@ -458,7 +563,7 @@ export default function DemandeDetailsPage() {
         alert("Veuillez remplir le compte paiement pour valider la demande");
         return;
       }
-      if (!paymentInfo.effectuePar.trim()) {
+      if (!finalEffectuePar.trim()) {
         alert("Veuillez sélectionner un utilisateur pour 'Effectué par'");
         return;
       }
@@ -474,12 +579,14 @@ export default function DemandeDetailsPage() {
       }
     }
 
-    // Prepare the request body with item prices
+    // Prepare the request body with item prices and descriptions
     const requestBody = {
       ...paymentInfo,
+      effectuePar: finalEffectuePar,
       demandeItems: demande.demandeItems.map(item => ({
         id: item.id,
-        prixUnitaire: item.prixUnitaire || itemPrices[item.id]
+        prixUnitaire: item.prixUnitaire || itemPrices[item.id],
+        description: item.description || itemDescriptions[item.id] || ""
       }))
     };
 
@@ -506,28 +613,37 @@ export default function DemandeDetailsPage() {
     return statusOptions;
   };
 
-  // User Search Component
-  const UserSearchInput = ({ value, onChange, onSelect, placeholder, className }) => (
+  // Enhanced User Search Component with proper focus handling - memoized to prevent re-renders
+  const UserSearchInput = useMemo(() => ({ placeholder, className }) => (
     <div className={`user-search-container ${className || ''}`}>
       <input
+        ref={inputRef}
         type="text"
-        value={value}
-        onChange={onChange}
-        onFocus={() => setShowUserDropdown(true)}
+        value={userSearchTerm}
+        onChange={handleUserSearchChange}
+        onFocus={handleUserSearchFocus}
+        onBlur={handleUserSearchBlur}
         placeholder={placeholder}
         className="form-input user-search-input"
+        autoComplete="off"
+        spellCheck="false"
       />
       {showUserDropdown && (
-        <div className="user-dropdown">
+        <div 
+          ref={dropdownRef} 
+          className="user-dropdown"
+          onMouseDown={handleDropdownMouseDown}
+          onMouseUp={handleDropdownMouseUp}
+        >
           {filteredUsers.length > 0 ? (
             filteredUsers.map(user => (
               <div
                 key={user.id}
-                className="user-dropdown-item"
-                onClick={() => onSelect(user)}
+                className={`user-dropdown-item ${selectedUserId === user.id ? 'selected' : ''}`}
+                onClick={() => handleUserSelect(user)}
               >
                 <div className="user-item-main">
-                  <span className="user-name">{user.fullName}</span>
+                  <span className="user-name">{user.fullName || `${user.prenom} ${user.nom}`}</span>
                   <span className="user-tag">⭐ Privilégié</span>
                 </div>
                 <div className="user-item-sub">
@@ -535,15 +651,15 @@ export default function DemandeDetailsPage() {
                 </div>
               </div>
             ))
-          ) : (
+          ) : userSearchTerm.trim() ? (
             <div className="user-dropdown-item no-results">
-              <span>Aucun utilisateur privilégié trouvé</span>
+              <span>Aucun utilisateur privilégié trouvé pour "{userSearchTerm}"</span>
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>
-  );
+  ), [userSearchTerm, showUserDropdown, filteredUsers, selectedUserId, handleUserSearchChange, handleUserSearchFocus, handleUserSearchBlur, handleUserSelect, handleDropdownMouseDown, handleDropdownMouseUp]);
 
   if (loading) {
     return (
@@ -640,12 +756,14 @@ export default function DemandeDetailsPage() {
                 <th>Article</th>
                 <th>Quantité</th>
                 <th>Prix Unitaire</th>
+                <th>Description</th>
                 <th>Total</th>
               </tr>
             </thead>
             <tbody>
               {demande.demandeItems.map(di => {
                 const currentPrice = di.prixUnitaire || itemPrices[di.id] || 0;
+                const currentDescription = di.description || itemDescriptions[di.id] || "";
                 const totalPrice = di.quantite * currentPrice;
                 
                 return (
@@ -667,6 +785,19 @@ export default function DemandeDetailsPage() {
                         <span>{currentPrice.toFixed(2)}DT</span>
                       )}
                     </td>
+                    <td>
+                      {demande.statut === "EnAttente" ? (
+                        <input
+                          type="text"
+                          value={currentDescription}
+                          onChange={(e) => handleDescriptionChange(di.id, e.target.value)}
+                          className="description-input"
+                          placeholder="Description (optionnelle)..."
+                        />
+                      ) : (
+                        <span>{currentDescription || "-"}</span>
+                      )}
+                    </td>
                     <td className="total-amount">
                       {totalPrice.toFixed(2)}DT
                     </td>
@@ -674,7 +805,7 @@ export default function DemandeDetailsPage() {
                 );
               })}
               <tr style={{ fontWeight: 'bold', backgroundColor: '#f8fafc' }}>
-                <td colSpan="3">Total Général</td>
+                <td colSpan="4">Total Général</td>
                 <td className="total-amount">{calculateTotal().toFixed(2)}DT</td>
               </tr>
             </tbody>
@@ -724,7 +855,7 @@ export default function DemandeDetailsPage() {
             <h3 className="form-title">Traitement de la Demande</h3>
             
             <div className="pricing-info">
-              <p>💡 <strong>Remplissez les prix unitaires dans le tableau ci-dessus avant d'accepter la demande.</strong></p>
+              <p>💡 <strong>Remplissez les prix unitaires et descriptions dans le tableau ci-dessus avant d'accepter la demande.</strong></p>
               <p>Le montant total sera calculé automatiquement: <strong>{calculateTotal().toFixed(2)}DT</strong></p>
             </div>
             
@@ -769,9 +900,6 @@ export default function DemandeDetailsPage() {
             <div className="form-group">
               <label className="form-label">Effectué Par *</label>
               <UserSearchInput
-                value={paymentInfo.effectuePar}
-                onChange={handleUserSearchChange}
-                onSelect={handleUserSelect}
                 placeholder="Rechercher un utilisateur privilégié..."
                 className="prefilled"
               />
@@ -829,25 +957,37 @@ export default function DemandeDetailsPage() {
               </small>
             </div>
 
-            {/* Show item prices table in modal if changing to Validee */}
+            {/* Show item prices and descriptions table in modal if changing to Validee */}
             {paymentInfo.statut === 'Validee' && (
               <div className="form-group">
-                <label className="form-label">Prix des Articles</label>
+                <label className="form-label">Prix et Descriptions des Articles</label>
                 <div className="modal-items-table">
                   {demande.demandeItems.map(di => {
                     const currentPrice = di.prixUnitaire || itemPrices[di.id] || 0;
+                    const currentDescription = di.description || itemDescriptions[di.id] || "";
                     return (
                       <div key={di.id} className="modal-item-row">
-                        <span className="modal-item-name">{di.item?.nom || 'Article'} x{di.quantite}</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={currentPrice}
-                          onChange={(e) => handlePriceChange(di.id, e.target.value)}
-                          className="price-input-small"
-                          placeholder="0.00"
-                        />
+                        <div className="modal-item-info">
+                          <span className="modal-item-name">{di.item?.nom || 'Article'} x{di.quantite}</span>
+                        </div>
+                        <div className="modal-item-inputs">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={currentPrice}
+                            onChange={(e) => handlePriceChange(di.id, e.target.value)}
+                            className="price-input-small"
+                            placeholder="Prix..."
+                          />
+                          <input
+                            type="text"
+                            value={currentDescription}
+                            onChange={(e) => handleDescriptionChange(di.id, e.target.value)}
+                            className="description-input-small"
+                            placeholder="Description..."
+                          />
+                        </div>
                         <span className="modal-item-total">
                           = {(di.quantite * currentPrice).toFixed(2)}DT
                         </span>
@@ -899,9 +1039,6 @@ export default function DemandeDetailsPage() {
                 <div className="form-group">
                   <label className="form-label">Effectué Par</label>
                   <UserSearchInput
-                    value={paymentInfo.effectuePar}
-                    onChange={handleUserSearchChange}
-                    onSelect={handleUserSelect}
                     placeholder="Rechercher un utilisateur privilégié..."
                   />
                 </div>
