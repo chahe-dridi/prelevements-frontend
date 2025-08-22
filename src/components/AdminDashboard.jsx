@@ -25,12 +25,14 @@ const AdminDashboard = () => {
   // Simplified export filters
   const [exportFilters, setExportFilters] = useState({
     categorieId: '',
-    utilisateurId: ''
+    utilisateurId: '',
+    itemId: ''
   });
 
   // State for data lists
   const [categories, setCategories] = useState([]);
   const [users, setUsers] = useState([]);
+  const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(null);
   
   // State for UI
@@ -40,6 +42,7 @@ const AdminDashboard = () => {
   const [messageType, setMessageType] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [filteredItems, setFilteredItems] = useState([]); // Add this missing state
 
   const API_BASE_URL = 'https://localhost:7101';
 
@@ -181,6 +184,36 @@ const AdminDashboard = () => {
     }
   };
 
+  // Function to fetch items by category
+ const fetchItemsByCategory = async (categorieId) => {
+    try {
+      if (!categorieId) {
+        // If no category selected, show all items
+        setFilteredItems(items);
+        return;
+      }
+
+      const itemsData = await makeApiCall(`${API_BASE_URL}/api/admindemandes/items?categorieId=${categorieId}`);
+      setFilteredItems(Array.isArray(itemsData) ? itemsData : []);
+    } catch (error) {
+      console.error('Items by category fetch error:', error);
+      setFilteredItems([]);
+    }
+  };
+
+
+  // Handle category change
+  const handleCategoryChange = (categorieId) => {
+    setExportFilters(prev => ({
+      ...prev,
+      categorieId: categorieId,
+      itemId: '' // Reset item selection when category changes
+    }));
+    
+    // Fetch items for the selected category
+    fetchItemsByCategory(categorieId);
+  };
+
   // Fetch performance metrics with error handling
   const fetchPerformanceMetrics = async () => {
     try {
@@ -206,7 +239,7 @@ const AdminDashboard = () => {
   };
 
   // Fetch categories and users for export filters
-  const fetchFilterData = async () => {
+    const fetchFilterData = async () => {
     try {
       console.log('Fetching filter data...');
       
@@ -227,13 +260,24 @@ const AdminDashboard = () => {
         console.error('Users fetch error:', error);
         setUsers([]);
       }
+
+      // Fetch all items initially
+      try {
+        const itemsData = await makeApiCall(`${API_BASE_URL}/api/admindemandes/items`);
+        setItems(Array.isArray(itemsData) ? itemsData : []);
+        setFilteredItems(Array.isArray(itemsData) ? itemsData : []);
+      } catch (error) {
+        console.error('Items fetch error:', error);
+        setItems([]);
+        setFilteredItems([]);
+      }
     } catch (error) {
       console.error('Filter data fetch error:', error);
     }
   };
 
   // Simplified export function
-  const exportToExcel = async () => {
+const exportToExcel = async () => {
     try {
       setExportLoading(true);
       const queryParams = new URLSearchParams();
@@ -244,6 +288,9 @@ const AdminDashboard = () => {
       }
       if (exportFilters.utilisateurId) {
         queryParams.append('utilisateurId', exportFilters.utilisateurId);
+      }
+      if (exportFilters.itemId) {
+        queryParams.append('itemId', exportFilters.itemId);
       }
 
       const exportUrl = `${API_BASE_URL}/api/admindemandes/export/excel?${queryParams}`;
@@ -440,6 +487,7 @@ const AdminDashboard = () => {
       fetchSummary();
       fetchAdvancedAnalytics();
       fetchPerformanceMetrics();
+      
     } else {
       console.log('No token available');
     }
@@ -965,7 +1013,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Export Tab */}
+         {/* Export Tab */}
         {activeTab === 'export' && (
           <div className="admin-dashboard-export">
             <div className="admin-dashboard-section">
@@ -979,10 +1027,7 @@ const AdminDashboard = () => {
                   <select
                     id="categoryFilter"
                     value={exportFilters.categorieId}
-                    onChange={(e) => setExportFilters(prev => ({
-                      ...prev,
-                      categorieId: e.target.value
-                    }))}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
                     className="admin-dashboard-select"
                   >
                     <option value="">Toutes les catégories</option>
@@ -1013,7 +1058,56 @@ const AdminDashboard = () => {
                     ))}
                   </select>
                 </div>
+
+                <div className="filter-group">
+                  <label htmlFor="itemFilter">Filtrer par Article:</label>
+                  <select
+                    id="itemFilter"
+                    value={exportFilters.itemId}
+                    onChange={(e) => setExportFilters(prev => ({
+                      ...prev,
+                      itemId: e.target.value
+                    }))}
+                    className="admin-dashboard-select"
+                    disabled={!exportFilters.categorieId && filteredItems.length === 0}
+                  >
+                    <option value="">
+                      {exportFilters.categorieId 
+                        ? "Tous les articles de cette catégorie" 
+                        : "Sélectionnez d'abord une catégorie"}
+                    </option>
+                    {filteredItems.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.nom} {item.prixUnitaire && `- ${formatCurrency(item.prixUnitaire)}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {/* Filter Summary */}
+              {(exportFilters.categorieId || exportFilters.utilisateurId || exportFilters.itemId) && (
+                <div className="admin-dashboard-filter-summary">
+                  <h4>🔍 Filtres Appliqués:</h4>
+                  <div className="filter-tags">
+                    {exportFilters.categorieId && (
+                      <span className="filter-tag">
+                        📦 {categories.find(c => c.id === exportFilters.categorieId)?.nom || 'Catégorie sélectionnée'}
+                      </span>
+                    )}
+                    {exportFilters.utilisateurId && (
+                      <span className="filter-tag">
+                        👤 {users.find(u => u.id === exportFilters.utilisateurId)?.nom || 'Utilisateur'} {users.find(u => u.id === exportFilters.utilisateurId)?.prenom || ''}
+                      </span>
+                    )}
+                    {exportFilters.itemId && (
+                      <span className="filter-tag">
+                        🎯 {filteredItems.find(i => i.id === exportFilters.itemId)?.nom || 'Article sélectionné'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Export Button */}
               <div className="admin-dashboard-export-actions">
@@ -1042,12 +1136,16 @@ const AdminDashboard = () => {
                   <li>Le fichier sera téléchargé au format CSV</li>
                   <li>Encodage UTF-8 compatible avec Excel</li>
                   <li>Inclut toutes les données de demandes et paiements</li>
-                  <li>Les filtres appliqués réduiront le jeu de données</li>
+                  <li>Sélectionnez une catégorie pour voir ses articles spécifiques</li>
+                  <li>Les filtres peuvent être combinés pour affiner les résultats</li>
+                  <li>Si aucun article n'est sélectionné, tous les articles de la catégorie sont inclus</li>
                 </ul>
               </div>
             </div>
           </div>
         )}
+
+
       </div>
     </div>
   );

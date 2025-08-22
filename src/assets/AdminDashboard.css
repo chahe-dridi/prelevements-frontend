@@ -1198,3 +1198,51 @@
     break-inside: avoid;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+/* ...existing code... */
+
+/* Filter Summary */
+.admin-dashboard-filter-summary {
+  background: #e8f5e8;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid #28a745;
+  margin: 1.5rem 0;
+}
+
+.admin-dashboard-filter-summary h4 {
+  margin: 0 0 1rem 0;
+  color: #155724;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filter-tag {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* ...existing code... */
