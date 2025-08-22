@@ -14,30 +14,32 @@ const AdminDashboard = () => {
     topUsers: [],
     topCategories: [],
     recentDemandes: [],
-    monthlyStats: []
+    monthlyTrends: [],
+    topItems: []
   });
 
-  // State for filters
-  const [filters, setFilters] = useState({
-    dateDebut: '',
-    dateFin: '',
+  // Advanced analytics state
+  const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
+  const [performanceMetrics, setPerformanceMetrics] = useState(null);
+
+  // Simplified export filters
+  const [exportFilters, setExportFilters] = useState({
     categorieId: '',
-    itemId: '',
-    utilisateurId: '',
-    statut: ''
+    utilisateurId: ''
   });
 
   // State for data lists
   const [categories, setCategories] = useState([]);
-  const [items, setItems] = useState([]);
   const [users, setUsers] = useState([]);
-  const [filteredData, setFilteredData] = useState(null);
+  const [summary, setSummary] = useState(null);
   
   // State for UI
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
+  const [exportLoading, setExportLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const API_BASE_URL = 'https://localhost:7101';
 
@@ -51,6 +53,7 @@ const AdminDashboard = () => {
   };
 
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) return "0,00 TND";
     return new Intl.NumberFormat('fr-TN', {
       style: 'currency',
       currency: 'TND',
@@ -64,127 +67,395 @@ const AdminDashboard = () => {
     return isNaN(d.getTime()) ? "Format de date invalide" : d.toLocaleDateString("fr-FR");
   };
 
-  // Fetch initial analytics data
+  const formatGrowth = (growth) => {
+    if (growth === null || growth === undefined || isNaN(growth)) return <span>N/A</span>;
+    const isPositive = growth >= 0;
+    return (
+      <span className={`admin-dashboard-growth ${isPositive ? 'positive' : 'negative'}`}>
+        {isPositive ? '📈' : '📉'} {Math.abs(growth).toFixed(1)}%
+      </span>
+    );
+  };
+
+  // Enhanced fetch function with better error handling
+  const makeApiCall = async (url, options = {}) => {
+    try {
+      const defaultOptions = {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        ...options
+      };
+
+      console.log(`Making API call to: ${url}`);
+      const response = await fetch(url, defaultOptions);
+      
+      console.log(`Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.text();
+          console.log('Error response:', errorData);
+          const parsedError = JSON.parse(errorData);
+          errorMessage = parsedError.message || parsedError.title || errorMessage;
+        } catch (parseError) {
+          console.log('Could not parse error response');
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const data = await response.json();
+      console.log('API response data:', data);
+      return data;
+    } catch (error) {
+      console.error(`API call failed for ${url}:`, error);
+      throw error;
+    }
+  };
+
+  // Fetch initial analytics data with better error handling
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/admindemandes/analytics`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      console.log('Fetching analytics data...');
       
-      if (!response.ok) throw new Error('Erreur lors du chargement des données analytiques');
+      const data = await makeApiCall(`${API_BASE_URL}/api/admindemandes/analytics`);
       
-      const data = await response.json();
-      setAnalytics(data);
+      // Validate and normalize data
+      const normalizedData = {
+        totalDemandes: data.totalDemandes || 0,
+        totalSpent: data.totalSpent || 0,
+        totalUsers: data.totalUsers || 0,
+        demandesParStatut: data.demandesParStatut || {},
+        topUsers: Array.isArray(data.topUsers) ? data.topUsers : [],
+        topCategories: Array.isArray(data.topCategories) ? data.topCategories : [],
+        recentDemandes: Array.isArray(data.recentDemandes) ? data.recentDemandes : [],
+        monthlyTrends: Array.isArray(data.monthlyTrends) ? data.monthlyTrends : [],
+        topItems: Array.isArray(data.topItems) ? data.topItems : []
+      };
+      
+      setAnalytics(normalizedData);
+      setRetryCount(0); // Reset retry count on success
+      showMessage('Données analytiques chargées avec succès', 'success');
     } catch (error) {
       console.error('Analytics fetch error:', error);
-      showMessage(`Erreur: ${error.message}`, 'error');
+      
+      // Set default values on error
+      setAnalytics({
+        totalDemandes: 0,
+        totalSpent: 0,
+        totalUsers: 0,
+        demandesParStatut: {},
+        topUsers: [],
+        topCategories: [],
+        recentDemandes: [],
+        monthlyTrends: [],
+        topItems: []
+      });
+      
+      showMessage(`Erreur lors du chargement des données: ${error.message}`, 'error');
+      
+      // Retry logic
+      if (retryCount < 2) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          fetchAnalytics();
+        }, 2000);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch categories, items, and users for filters
+  // Fetch advanced analytics with error handling
+  const fetchAdvancedAnalytics = async () => {
+    try {
+      console.log('Fetching advanced analytics...');
+      const data = await makeApiCall(`${API_BASE_URL}/api/admindemandes/analytics/advanced`);
+      setAdvancedAnalytics(data);
+    } catch (error) {
+      console.error('Advanced analytics fetch error:', error);
+      // Don't show error message for advanced analytics - it's optional
+    }
+  };
+
+  // Fetch performance metrics with error handling
+  const fetchPerformanceMetrics = async () => {
+    try {
+      console.log('Fetching performance metrics...');
+      const data = await makeApiCall(`${API_BASE_URL}/api/admindemandes/analytics/performance`);
+      setPerformanceMetrics(data);
+    } catch (error) {
+      console.error('Performance metrics fetch error:', error);
+      // Don't show error message for performance metrics - it's optional
+    }
+  };
+
+  // Fetch summary statistics with error handling
+  const fetchSummary = async () => {
+    try {
+      console.log('Fetching summary...');
+      const data = await makeApiCall(`${API_BASE_URL}/api/admindemandes/statistics/summary`);
+      setSummary(data);
+    } catch (error) {
+      console.error('Summary fetch error:', error);
+      // Don't show error message for summary - it's optional
+    }
+  };
+
+  // Fetch categories and users for export filters
   const fetchFilterData = async () => {
     try {
-      const [categoriesRes, usersRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/demandes/categories`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        fetch(`${API_BASE_URL}/api/admindemandes/users`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
-
-      if (categoriesRes.ok) {
-        const categoriesData = await categoriesRes.json();
-        setCategories(categoriesData);
+      console.log('Fetching filter data...');
+      
+      // Fetch categories
+      try {
+        const categoriesData = await makeApiCall(`${API_BASE_URL}/api/demandes/categories`);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      } catch (error) {
+        console.error('Categories fetch error:', error);
+        setCategories([]);
       }
 
-      if (usersRes.ok) {
-        const usersData = await usersRes.json();
-        setUsers(usersData);
+      // Fetch users
+      try {
+        const usersData = await makeApiCall(`${API_BASE_URL}/api/admindemandes/users`);
+        setUsers(Array.isArray(usersData) ? usersData : []);
+      } catch (error) {
+        console.error('Users fetch error:', error);
+        setUsers([]);
       }
     } catch (error) {
       console.error('Filter data fetch error:', error);
     }
   };
 
-  // Handle category change to load items
-  const handleCategoryChange = async (categorieId) => {
-    setFilters(prev => ({ ...prev, categorieId, itemId: '' }));
-    
-    if (categorieId) {
-      try {
-        const category = categories.find(c => c.id === categorieId);
-        if (category && category.items) {
-          setItems(category.items);
-        }
-      } catch (error) {
-        console.error('Items fetch error:', error);
-      }
-    } else {
-      setItems([]);
-    }
-  };
-
-  // Apply filters to get custom analytics
-  const applyFilters = async () => {
+  // Simplified export function
+  const exportToExcel = async () => {
     try {
-      setLoading(true);
+      setExportLoading(true);
       const queryParams = new URLSearchParams();
       
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) queryParams.append(key, value);
-      });
+      // Add simple filters if selected
+      if (exportFilters.categorieId) {
+        queryParams.append('categorieId', exportFilters.categorieId);
+      }
+      if (exportFilters.utilisateurId) {
+        queryParams.append('utilisateurId', exportFilters.utilisateurId);
+      }
 
-      const response = await fetch(`${API_BASE_URL}/api/admindemandes/analytics/filtered?${queryParams}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const exportUrl = `${API_BASE_URL}/api/admindemandes/export/excel?${queryParams}`;
+      console.log('Export URL:', exportUrl);
+
+      const result = await makeApiCall(exportUrl);
       
-      if (!response.ok) throw new Error('Erreur lors du filtrage des données');
+      if (!result.success) {
+        throw new Error(result.message || 'Erreur lors de l\'export');
+      }
       
-      const data = await response.json();
-      setFilteredData(data);
-      showMessage('Filtres appliqués avec succès', 'success');
+      if (!result.data || result.data.length === 0) {
+        showMessage('Aucune donnée à exporter', 'warning');
+        return;
+      }
+      
+      // Convert to CSV format for download
+      const csvContent = convertToCSV(result.data);
+      const filename = `demandes_export_${new Date().toISOString().split('T')[0]}.csv`;
+      downloadCSV(csvContent, filename);
+      
+      showMessage(`Export réussi: ${result.totalRecords} enregistrements exportés (${result.exportType})`, 'success');
     } catch (error) {
-      console.error('Filter apply error:', error);
-      showMessage(`Erreur: ${error.message}`, 'error');
+      console.error('Export error:', error);
+      showMessage(`Erreur d'export: ${error.message}`, 'error');
     } finally {
-      setLoading(false);
+      setExportLoading(false);
     }
   };
 
-  // Reset filters
-  const resetFilters = () => {
-    setFilters({
-      dateDebut: '',
-      dateFin: '',
-      categorieId: '',
-      itemId: '',
-      utilisateurId: '',
-      statut: ''
-    });
-    setItems([]);
-    setFilteredData(null);
-    showMessage('Filtres réinitialisés', 'info');
+  // Helper function to convert data to CSV
+  const convertToCSV = (data) => {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return '';
+    }
+    
+    try {
+      // French headers mapping
+      const headerMapping = {
+        'DateDemande': 'Date Demande',
+        'Statut': 'Statut',
+        'Utilisateur': 'Utilisateur',
+        'Email': 'Email',
+        'EstFaveur': 'Faveur',
+        'Categorie': 'Catégorie',
+        'NombreItems': 'Nombre Articles',
+        'Items': 'Articles Détaillés',
+        'MontantTotal': 'Montant Total (TND)',
+        'MontantEnLettres': 'Montant en Lettres',
+        'ComptePaiement': 'Compte Paiement',
+        'DatePaiement': 'Date Paiement',
+        'EffectuePar': 'Effectué Par'
+      };
+      
+      const originalHeaders = Object.keys(data[0]);
+      const translatedHeaders = originalHeaders.map(header => headerMapping[header] || header);
+      
+      const csvRows = [
+        // Add BOM for proper UTF-8 encoding in Excel + translated headers
+        '\uFEFF' + translatedHeaders.map(header => `"${header}"`).join(','),
+        ...data.map(row => originalHeaders.map(header => {
+          const value = row[header];
+          const cleanValue = value == null ? '' : String(value).replace(/"/g, '""');
+          return `"${cleanValue}"`;
+        }).join(','))
+      ];
+      
+      return csvRows.join('\n');
+    } catch (error) {
+      console.error('Error converting data to CSV:', error);
+      throw new Error('Erreur lors de la conversion des données en CSV');
+    }
+  };
+
+  // Helper function to download CSV
+  const downloadCSV = (csvContent, filename) => {
+    try {
+      if (!csvContent) {
+        throw new Error('Aucun contenu à télécharger');
+      }
+
+      const blob = new Blob([csvContent], { 
+        type: 'text/csv;charset=utf-8;' 
+      });
+      
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      
+    } catch (error) {
+      console.error('Download error:', error);
+      showMessage('Erreur lors du téléchargement du fichier', 'error');
+    }
+  };
+
+  // Retry function for manual retry
+  const retryFetch = () => {
+    setRetryCount(0);
+    fetchAnalytics();
+    fetchAdvancedAnalytics();
+    fetchPerformanceMetrics();
+    fetchSummary();
+  };
+
+  // Simple chart component for monthly trends
+  const MonthlyTrendsChart = ({ data }) => {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return <p className="admin-dashboard-no-data">Aucune donnée disponible</p>;
+    }
+
+    const validData = data.filter(d => d && typeof d.totalSpent === 'number');
+    if (validData.length === 0) {
+      return <p className="admin-dashboard-no-data">Aucune donnée valide disponible</p>;
+    }
+
+    const maxValue = Math.max(...validData.map(d => d.totalSpent));
+    
+    return (
+      <div className="admin-dashboard-chart">
+        <div className="admin-dashboard-chart-bars">
+          {validData.slice(-6).map((trend, index) => (
+            <div key={index} className="admin-dashboard-chart-bar-container">
+              <div 
+                className="admin-dashboard-chart-bar"
+                style={{ 
+                  height: `${maxValue > 0 ? (trend.totalSpent / maxValue) * 100 : 0}%`,
+                  minHeight: '5px'
+                }}
+                title={`${trend.totalDemandes || 0} demandes - ${formatCurrency(trend.totalSpent)}`}
+              />
+              <div className="admin-dashboard-chart-label">
+                {trend.year && trend.month ? 
+                  new Date(trend.year, trend.month - 1).toLocaleDateString('fr-FR', { month: 'short' }) :
+                  'N/A'
+                }
+              </div>
+              <div className="admin-dashboard-chart-value">
+                {formatCurrency(trend.totalSpent)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Performance gauge component
+  const PerformanceGauge = ({ value, label, max = 100, color = '#667eea' }) => {
+    const safeValue = value && !isNaN(value) ? Number(value) : 0;
+    const percentage = Math.min((safeValue / max) * 100, 100);
+    
+    return (
+      <div className="admin-dashboard-gauge">
+        <div className="admin-dashboard-gauge-container">
+          <svg viewBox="0 0 100 50" className="admin-dashboard-gauge-svg">
+            <path
+              d="M 10 45 A 40 40 0 0 1 90 45"
+              stroke="#e9ecef"
+              strokeWidth="6"
+              fill="none"
+            />
+            <path
+              d="M 10 45 A 40 40 0 0 1 90 45"
+              stroke={color}
+              strokeWidth="6"
+              fill="none"
+              strokeDasharray={`${percentage * 1.26} 126`}
+              style={{ transition: 'stroke-dasharray 0.3s ease' }}
+            />
+          </svg>
+          <div className="admin-dashboard-gauge-value">
+            {safeValue.toFixed(1)}%
+          </div>
+        </div>
+        <div className="admin-dashboard-gauge-label">{label}</div>
+      </div>
+    );
   };
 
   useEffect(() => {
     if (token) {
+      console.log('Token available, starting data fetch...');
       fetchAnalytics();
       fetchFilterData();
+      fetchSummary();
+      fetchAdvancedAnalytics();
+      fetchPerformanceMetrics();
+    } else {
+      console.log('No token available');
     }
   }, [token]);
 
-  const currentData = filteredData || analytics;
-
-  if (loading && !analytics.totalDemandes) {
+  if (loading && analytics.totalDemandes === 0) {
     return (
       <div className="admin-dashboard-container">
-        <div className="admin-dashboard-loading-container">
-          <div className="admin-dashboard-loading-spinner"></div>
-          <p>Chargement du tableau de bord...</p>
+        <div className="admin-dashboard-loading">
+          <div className="spinner"></div>
+          <p>Chargement des données... {retryCount > 0 && `(Tentative ${retryCount + 1})`}</p>
+          {retryCount >= 2 && (
+            <button onClick={retryFetch} className="retry-button">
+              Réessayer
+            </button>
+          )}
         </div>
       </div>
     );
@@ -193,10 +464,16 @@ const AdminDashboard = () => {
   return (
     <div className="admin-dashboard-container">
       <div className="admin-dashboard-header">
-        <h1>🎛️ Tableau de Bord Administrateur</h1>
-        <p>Vue d'ensemble des demandes et statistiques</p>
+        <h1>🔧 Tableau de Bord Administrateur</h1>
+        <p>Vue d'ensemble et analytics des demandes système</p>
+        {retryCount >= 2 && (
+          <button onClick={retryFetch} className="retry-button">
+            🔄 Actualiser les données
+          </button>
+        )}
       </div>
 
+      {/* Message Display */}
       {message && (
         <div className={`admin-dashboard-message ${messageType}`}>
           {message}
@@ -204,309 +481,574 @@ const AdminDashboard = () => {
       )}
 
       {/* Tab Navigation */}
-      <div className="admin-dashboard-tab-navigation">
+      <div className="admin-dashboard-tabs">
         <button 
-          className={`admin-dashboard-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+          className={`admin-dashboard-tab ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
           📊 Vue d'ensemble
         </button>
         <button 
-          className={`admin-dashboard-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+          className={`admin-dashboard-tab ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >
-          📈 Analyses détaillées
+          📈 Analytics
         </button>
         <button 
-          className={`admin-dashboard-tab-btn ${activeTab === 'filters' ? 'active' : ''}`}
-          onClick={() => setActiveTab('filters')}
+          className={`admin-dashboard-tab ${activeTab === 'insights' ? 'active' : ''}`}
+          onClick={() => setActiveTab('insights')}
         >
-          🔍 Filtres avancés
+          🔍 Insights
+        </button>
+        <button 
+          className={`admin-dashboard-tab ${activeTab === 'performance' ? 'active' : ''}`}
+          onClick={() => setActiveTab('performance')}
+        >
+          ⚡ Performance
+        </button>
+        <button 
+          className={`admin-dashboard-tab ${activeTab === 'export' ? 'active' : ''}`}
+          onClick={() => setActiveTab('export')}
+        >
+          📋 Export
         </button>
       </div>
 
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
-        <div className="admin-dashboard-overview-section">
-          {/* Key Metrics Cards */}
-          <div className="admin-dashboard-metrics-grid">
-            <div className="admin-dashboard-metric-card admin-dashboard-total-demandes">
-              <div className="admin-dashboard-metric-icon">📋</div>
-              <div className="admin-dashboard-metric-content">
-                <h3>Total Demandes</h3>
-                <p className="admin-dashboard-metric-value">{currentData.totalDemandes}</p>
-              </div>
-            </div>
-
-            <div className="admin-dashboard-metric-card admin-dashboard-total-spent">
-              <div className="admin-dashboard-metric-icon">💰</div>
-              <div className="admin-dashboard-metric-content">
-                <h3>Montant Total</h3>
-                <p className="admin-dashboard-metric-value">{formatCurrency(currentData.totalSpent)}</p>
-              </div>
-            </div>
-
-            <div className="admin-dashboard-metric-card admin-dashboard-total-users">
-              <div className="admin-dashboard-metric-icon">👥</div>
-              <div className="admin-dashboard-metric-content">
-                <h3>Utilisateurs Actifs</h3>
-                <p className="admin-dashboard-metric-value">{currentData.totalUsers}</p>
-              </div>
-            </div>
-
-            <div className="admin-dashboard-metric-card admin-dashboard-avg-per-user">
-              <div className="admin-dashboard-metric-icon">📊</div>
-              <div className="admin-dashboard-metric-content">
-                <h3>Moyenne par Utilisateur</h3>
-                <p className="admin-dashboard-metric-value">
-                  {currentData.totalUsers > 0 
-                    ? formatCurrency(currentData.totalSpent / currentData.totalUsers)
-                    : formatCurrency(0)
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Status Distribution */}
-          {currentData.demandesParStatut && (
-            <div className="admin-dashboard-status-distribution">
-              <h3>🎯 Répartition par Statut</h3>
-              <div className="admin-dashboard-status-cards">
-                <div className="admin-dashboard-status-card pending">
-                  <h4>En Attente</h4>
-                  <p>{currentData.demandesParStatut.EnAttente || 0}</p>
+      {/* Tab Content */}
+      <div className="admin-dashboard-content">
+        
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="admin-dashboard-overview">
+            {/* Key Metrics */}
+            <div className="admin-dashboard-metrics-grid">
+              <div className="admin-dashboard-metric-card primary">
+                <div className="metric-icon">📋</div>
+                <div className="metric-content">
+                  <h3>Total Demandes</h3>
+                  <p className="metric-value">{analytics.totalDemandes?.toLocaleString() || '0'}</p>
+                  {summary && (
+                    <small className="metric-growth">
+                      Ce mois: {summary.currentMonth?.demandes || 0} {formatGrowth(summary.growth?.demandes)}
+                    </small>
+                  )}
                 </div>
-                <div className="admin-dashboard-status-card approved">
-                  <h4>Validées</h4>
-                  <p>{currentData.demandesParStatut.Validee || 0}</p>
+              </div>
+
+              <div className="admin-dashboard-metric-card success">
+                <div className="metric-icon">💰</div>
+                <div className="metric-content">
+                  <h3>Montant Total</h3>
+                  <p className="metric-value">{formatCurrency(analytics.totalSpent)}</p>
+                  {summary && (
+                    <small className="metric-growth">
+                      Ce mois: {formatCurrency(summary.currentMonth?.spent)} {formatGrowth(summary.growth?.spent)}
+                    </small>
+                  )}
                 </div>
-                <div className="admin-dashboard-status-card rejected">
-                  <h4>Refusées</h4>
-                  <p>{currentData.demandesParStatut.Refusee || 0}</p>
+              </div>
+
+              <div className="admin-dashboard-metric-card info">
+                <div className="metric-icon">👥</div>
+                <div className="metric-content">
+                  <h3>Utilisateurs Actifs</h3>
+                  <p className="metric-value">{analytics.totalUsers || 0}</p>
+                  {summary && (
+                    <small className="metric-growth">
+                      Faveur: {summary.faveurUsers || 0} / {summary.totalUsers || 0}
+                    </small>
+                  )}
+                </div>
+              </div>
+
+              <div className="admin-dashboard-metric-card warning">
+                <div className="metric-icon">⏳</div>
+                <div className="metric-content">
+                  <h3>En Attente</h3>
+                  <p className="metric-value">{analytics.demandesParStatut?.EnAttente || 0}</p>
+                  <small className="metric-growth">Nécessitent une action</small>
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {/* Analytics Tab */}
-      {activeTab === 'analytics' && (
-        <div className="admin-dashboard-analytics-section">
-          <div className="admin-dashboard-analytics-grid">
-            {/* Top Users */}
-            <div className="admin-dashboard-analytics-card">
-              <h3>🏆 Top Utilisateurs</h3>
-              <div className="admin-dashboard-top-list">
-                {currentData.topUsers && currentData.topUsers.length > 0 ? (
-                  currentData.topUsers.map((user, index) => (
-                    <div key={user.id} className="admin-dashboard-top-item">
-                      <div className="admin-dashboard-rank">#{index + 1}</div>
-                      <div className="admin-dashboard-details">
-                        <p className="name">{user.nom} {user.prenom}</p>
-                        <p className="stats">
-                          {user.totalDemandes} demandes • {formatCurrency(user.totalSpent)}
-                        </p>
-                      </div>
+            {/* Status Distribution */}
+            <div className="admin-dashboard-section">
+              <h2>🔄 Distribution des Statuts</h2>
+              <div className="admin-dashboard-status-grid">
+                {Object.entries(analytics.demandesParStatut || {}).map(([status, count]) => (
+                  <div key={status} className={`admin-dashboard-status-card status-${status.toLowerCase()}`}>
+                    <div className="status-header">
+                      <span className="status-icon">
+                        {status === 'Validee' && '✅'}
+                        {status === 'EnAttente' && '⏳'}
+                        {status === 'Refusee' && '❌'}
+                      </span>
+                      <h4>{status.replace('Validee', 'Validée').replace('EnAttente', 'En Attente').replace('Refusee', 'Refusée')}</h4>
                     </div>
-                  ))
-                ) : (
-                  <p className="admin-dashboard-no-data">Aucune donnée disponible</p>
-                )}
-              </div>
-            </div>
-
-            {/* Top Categories */}
-            <div className="admin-dashboard-analytics-card">
-              <h3>🏷️ Top Catégories</h3>
-              <div className="admin-dashboard-top-list">
-                {currentData.topCategories && currentData.topCategories.length > 0 ? (
-                  currentData.topCategories.map((category, index) => (
-                    <div key={category.id} className="admin-dashboard-top-item">
-                      <div className="admin-dashboard-rank">#{index + 1}</div>
-                      <div className="admin-dashboard-details">
-                        <p className="name">{category.nom}</p>
-                        <p className="stats">
-                          {category.totalDemandes} demandes • {formatCurrency(category.totalSpent)}
-                        </p>
-                      </div>
+                    <p className="status-count">{count || 0}</p>
+                    <div className="status-percentage">
+                      {analytics.totalDemandes > 0 ? ((count / analytics.totalDemandes) * 100).toFixed(1) : 0}%
                     </div>
-                  ))
-                ) : (
-                  <p className="admin-dashboard-no-data">Aucune donnée disponible</p>
-                )}
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
 
-          {/* Recent Activity */}
-          <div className="admin-dashboard-recent-activity">
-            <h3>🕒 Activité Récente</h3>
-            <div className="admin-dashboard-activity-list">
-              {currentData.recentDemandes && currentData.recentDemandes.length > 0 ? (
-                currentData.recentDemandes.map((demande) => (
-                  <div key={demande.id} className="admin-dashboard-activity-item">
-                    <div className="admin-dashboard-activity-date">{formatDate(demande.dateDemande)}</div>
-                    <div className="admin-dashboard-activity-content">
-                      <p>{demande.utilisateur.nom} {demande.utilisateur.prenom}</p>
-                      <p className="admin-dashboard-activity-details">
-                        {demande.categorie.nom} • 
-                        <span className={`admin-dashboard-status ${demande.statut.toLowerCase()}`}>
-                          {demande.statut}
+            {/* Recent Activity */}
+            <div className="admin-dashboard-section">
+              <h2>🕐 Activité Récente</h2>
+              <div className="admin-dashboard-recent-activity">
+                {analytics.recentDemandes && analytics.recentDemandes.length > 0 ? (
+                  analytics.recentDemandes.map((demande, index) => (
+                    <div key={index} className="admin-dashboard-activity-item">
+                      <div className="activity-icon">
+                        <span className={`status-indicator status-${demande.statut?.toLowerCase() || 'unknown'}`}>
+                          {demande.statut === 'Validee' && '✅'}
+                          {demande.statut === 'EnAttente' && '⏳'}
+                          {demande.statut === 'Refusee' && '❌'}
                         </span>
-                      </p>
+                      </div>
+                      <div className="activity-content">
+                        <div className="activity-header">
+                          <span className="activity-user">
+                            {demande.utilisateur?.nom || ''} {demande.utilisateur?.prenom || ''}
+                            {demande.utilisateur?.isFaveur && <span className="faveur-badge">👑</span>}
+                          </span>
+                          <span className="activity-time">{formatDate(demande.dateDemande)}</span>
+                        </div>
+                        <div className="activity-details">
+                          <span className="activity-category">{demande.categorie?.nom || 'N/A'}</span>
+                          <span className="activity-items">{demande.itemsCount || 0} article(s)</span>
+                          <span className="activity-amount">{formatCurrency(demande.montantTotal)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="admin-dashboard-activity-amount">
-                      {formatCurrency(demande.montantTotal || 0)}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="admin-dashboard-no-data">Aucune activité récente</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Filters Tab */}
-      {activeTab === 'filters' && (
-        <div className="admin-dashboard-filters-section">
-          <div className="admin-dashboard-filters-header">
-            <h3>🔍 Filtres Avancés</h3>
-            <p>Appliquez des filtres pour analyser des données spécifiques</p>
-          </div>
-
-          <div className="admin-dashboard-filters-form">
-            <div className="admin-dashboard-filter-row">
-              <div className="admin-dashboard-filter-group">
-                <label>Date de début:</label>
-                <input
-                  type="date"
-                  value={filters.dateDebut}
-                  onChange={(e) => setFilters(prev => ({ ...prev, dateDebut: e.target.value }))}
-                />
-              </div>
-
-              <div className="admin-dashboard-filter-group">
-                <label>Date de fin:</label>
-                <input
-                  type="date"
-                  value={filters.dateFin}
-                  onChange={(e) => setFilters(prev => ({ ...prev, dateFin: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="admin-dashboard-filter-row">
-              <div className="admin-dashboard-filter-group">
-                <label>Catégorie:</label>
-                <select
-                  value={filters.categorieId}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                >
-                  <option value="">Toutes les catégories</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.id}>
-                      {category.nom}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="admin-dashboard-filter-group">
-                <label>Article:</label>
-                <select
-                  value={filters.itemId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, itemId: e.target.value }))}
-                  disabled={!filters.categorieId}
-                >
-                  <option value="">Tous les articles</option>
-                  {items.map(item => (
-                    <option key={item.id} value={item.id}>
-                      {item.nom}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="admin-dashboard-filter-row">
-              <div className="admin-dashboard-filter-group">
-                <label>Utilisateur:</label>
-                <select
-                  value={filters.utilisateurId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, utilisateurId: e.target.value }))}
-                >
-                  <option value="">Tous les utilisateurs</option>
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.nom} {user.prenom} ({user.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="admin-dashboard-filter-group">
-                <label>Statut:</label>
-                <select
-                  value={filters.statut}
-                  onChange={(e) => setFilters(prev => ({ ...prev, statut: e.target.value }))}
-                >
-                  <option value="">Tous les statuts</option>
-                  <option value="EnAttente">En Attente</option>
-                  <option value="Validee">Validée</option>
-                  <option value="Refusee">Refusée</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="admin-dashboard-filter-actions">
-              <button 
-                className="admin-dashboard-btn admin-dashboard-btn-primary"
-                onClick={applyFilters}
-                disabled={loading}
-              >
-                {loading ? '⏳ Application...' : '🔍 Appliquer les filtres'}
-              </button>
-              <button 
-                className="admin-dashboard-btn admin-dashboard-btn-secondary"
-                onClick={resetFilters}
-              >
-                🔄 Réinitialiser
-              </button>
-            </div>
-          </div>
-
-          {/* Filtered Results */}
-          {filteredData && (
-            <div className="admin-dashboard-filtered-results">
-              <h4>📊 Résultats Filtrés</h4>
-              <div className="admin-dashboard-filtered-metrics">
-                <div className="admin-dashboard-filtered-metric">
-                  <span className="label">Demandes trouvées:</span>
-                  <span className="value">{filteredData.totalDemandes}</span>
-                </div>
-                <div className="admin-dashboard-filtered-metric">
-                  <span className="label">Montant total:</span>
-                  <span className="value">{formatCurrency(filteredData.totalSpent)}</span>
-                </div>
-                <div className="admin-dashboard-filtered-metric">
-                  <span className="label">Utilisateurs impliqués:</span>
-                  <span className="value">{filteredData.totalUsers}</span>
-                </div>
-                {filteredData.averagePerDemande && (
-                  <div className="admin-dashboard-filtered-metric">
-                    <span className="label">Moyenne par demande:</span>
-                    <span className="value">{formatCurrency(filteredData.averagePerDemande)}</span>
-                  </div>
+                  ))
+                ) : (
+                  <p className="admin-dashboard-no-data">Aucune activité récente</p>
                 )}
               </div>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div className="admin-dashboard-analytics">
+            
+            {/* Monthly Trends */}
+            <div className="admin-dashboard-section">
+              <h2>📊 Tendances Mensuelles</h2>
+              <div className="admin-dashboard-chart-container">
+                <MonthlyTrendsChart data={analytics.monthlyTrends} />
+              </div>
+            </div>
+
+            {/* Top Users and Categories */}
+            <div className="admin-dashboard-two-column">
+              
+              {/* Top Users */}
+              <div className="admin-dashboard-section">
+                <h2>🏆 Top Utilisateurs</h2>
+                <div className="admin-dashboard-top-list">
+                  {analytics.topUsers && analytics.topUsers.length > 0 ? (
+                    analytics.topUsers.slice(0, 5).map((user, index) => (
+                      <div key={user.id || index} className="admin-dashboard-top-item">
+                        <div className="top-item-rank">#{index + 1}</div>
+                        <div className="top-item-content">
+                          <div className="top-item-header">
+                            <span className="top-item-name">
+                              {user.nom || ''} {user.prenom || ''}
+                              {user.isFaveur && <span className="faveur-badge">👑</span>}
+                            </span>
+                          </div>
+                          <div className="top-item-stats">
+                            <span>{user.totalDemandes || 0} demandes</span>
+                            <span className="top-item-amount">{formatCurrency(user.totalSpent)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="admin-dashboard-no-data">Aucune donnée utilisateur</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Top Categories */}
+              <div className="admin-dashboard-section">
+                <h2>📦 Top Catégories</h2>
+                <div className="admin-dashboard-top-list">
+                  {analytics.topCategories && analytics.topCategories.length > 0 ? (
+                    analytics.topCategories.slice(0, 5).map((category, index) => (
+                      <div key={category.id || index} className="admin-dashboard-top-item">
+                        <div className="top-item-rank">#{index + 1}</div>
+                        <div className="top-item-content">
+                          <div className="top-item-header">
+                            <span className="top-item-name">{category.nom || 'N/A'}</span>
+                          </div>
+                          <div className="top-item-stats">
+                            <span>{category.totalDemandes || 0} demandes</span>
+                            <span className="top-item-amount">{formatCurrency(category.totalSpent)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="admin-dashboard-no-data">Aucune donnée catégorie</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Top Items */}
+            <div className="admin-dashboard-section">
+              <h2>🎯 Articles les Plus Demandés</h2>
+              <div className="admin-dashboard-items-grid">
+                {analytics.topItems && analytics.topItems.length > 0 ? (
+                  analytics.topItems.slice(0, 6).map((item, index) => (
+                    <div key={item.id || index} className="admin-dashboard-item-card">
+                      <div className="item-rank">#{index + 1}</div>
+                      <div className="item-content">
+                        <h4 className="item-name">{item.nom || 'N/A'}</h4>
+                        <div className="item-stats">
+                          <div className="item-stat">
+                            <span className="stat-label">Quantité:</span>
+                            <span className="stat-value">{item.totalQuantity || 0}</span>
+                          </div>
+                          <div className="item-stat">
+                            <span className="stat-label">Commandes:</span>
+                            <span className="stat-value">{item.totalOrders || 0}</span>
+                          </div>
+                          <div className="item-stat">
+                            <span className="stat-label">Valeur:</span>
+                            <span className="stat-value">{formatCurrency(item.totalValue)}</span>
+                          </div>
+                          <div className="item-stat">
+                            <span className="stat-label">Prix Moyen:</span>
+                            <span className="stat-value">{formatCurrency(item.averagePrice)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="admin-dashboard-no-data">Aucune donnée article</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Insights Tab */}
+        {activeTab === 'insights' && (
+          <div className="admin-dashboard-insights">
+            {advancedAnalytics ? (
+              <>
+                {/* Yearly Comparison */}
+                <div className="admin-dashboard-section">
+                  <h2>📅 Comparaison Annuelle</h2>
+                  <div className="admin-dashboard-yearly-comparison">
+                    {(advancedAnalytics.yearlyComparison || []).map((year, index) => (
+                      <div key={index} className="yearly-card">
+                        <div className="year-header">
+                          <h3>{year.year || 'N/A'}</h3>
+                        </div>
+                        <div className="year-stats">
+                          <div className="year-stat">
+                            <span className="stat-label">Demandes:</span>
+                            <span className="stat-value">{year.totalDemandes || 0}</span>
+                          </div>
+                          <div className="year-stat">
+                            <span className="stat-label">Montant:</span>
+                            <span className="stat-value">{formatCurrency(year.totalSpent)}</span>
+                          </div>
+                          <div className="year-stat">
+                            <span className="stat-label">Moyenne:</span>
+                            <span className="stat-value">{formatCurrency(year.averageAmount)}</span>
+                          </div>
+                          <div className="year-stat">
+                            <span className="stat-label">Utilisateurs:</span>
+                            <span className="stat-value">{year.uniqueUsers || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Predictive Insights */}
+                {advancedAnalytics.predictiveInsights && (
+                  <div className="admin-dashboard-section">
+                    <h2>🔮 Prédictions</h2>
+                    <div className="admin-dashboard-predictions">
+                      <div className="prediction-card">
+                        <h4>📊 Moyenne Mensuelle</h4>
+                        <p className="prediction-value">
+                          {(advancedAnalytics.predictiveInsights.avgMonthlyDemandes || 0).toFixed(1)} demandes
+                        </p>
+                        <p className="prediction-amount">
+                          {formatCurrency(advancedAnalytics.predictiveInsights.avgMonthlySpent)}
+                        </p>
+                      </div>
+                      <div className="prediction-card">
+                        <h4>📈 Prochaine Prédiction</h4>
+                        <p className="prediction-value">
+                          {(advancedAnalytics.predictiveInsights.projectedNextMonth || 0).toFixed(1)} demandes
+                        </p>
+                        <p className="prediction-trend">
+                          Tendance: {advancedAnalytics.predictiveInsights.trendDirection || 'stable'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Financial Insights */}
+                {advancedAnalytics.financialInsights && (
+                  <div className="admin-dashboard-section">
+                    <h2>💡 Insights Financiers</h2>
+                    <div className="admin-dashboard-financial-insights">
+                      <div className="insight-card">
+                        <h4>💎 Demandes de Haute Valeur</h4>
+                        <p className="insight-value">{advancedAnalytics.financialInsights.highValueRequests || 0}</p>
+                        <small>Demandes > 1000 TND</small>
+                      </div>
+                      <div className="insight-card">
+                        <h4>📊 Valeur Moyenne</h4>
+                        <p className="insight-value">{formatCurrency(advancedAnalytics.financialInsights.averageRequestValue)}</p>
+                        <small>Par demande</small>
+                      </div>
+                      <div className="insight-card">
+                        <h4>📈 Croissance Mensuelle</h4>
+                        <p className="insight-value">{formatGrowth(advancedAnalytics.financialInsights.monthlyGrowthRate)}</p>
+                        <small>Comparé au mois dernier</small>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Spending Departments */}
+                {advancedAnalytics.financialInsights?.topSpendingDepartments && (
+                  <div className="admin-dashboard-section">
+                    <h2>🏢 Départements</h2>
+                    <div className="admin-dashboard-departments">
+                      {advancedAnalytics.financialInsights.topSpendingDepartments.map((dept, index) => (
+                        <div key={index} className="department-card">
+                          <h4>{dept.department || 'N/A'}</h4>
+                          <div className="department-stats">
+                            <span>{dept.requestCount || 0} demandes</span>
+                            <span>{formatCurrency(dept.totalSpent)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="admin-dashboard-loading">
+                <p>Chargement des insights avancés...</p>
+                <button onClick={fetchAdvancedAnalytics} className="retry-button">
+                  Réessayer
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Performance Tab */}
+        {activeTab === 'performance' && (
+          <div className="admin-dashboard-performance">
+            {performanceMetrics ? (
+              <>
+                {/* Performance Gauges */}
+                <div className="admin-dashboard-section">
+                  <h2>⚡ Métriques de Performance</h2>
+                  <div className="admin-dashboard-gauges">
+                    <PerformanceGauge 
+                      value={performanceMetrics.approvalRate} 
+                      label="Taux d'Approbation" 
+                      color="#28a745" 
+                    />
+                    <PerformanceGauge 
+                      value={100 - (performanceMetrics.rejectionRate || 0)} 
+                      label="Taux de Succès" 
+                      color="#007bff" 
+                    />
+                    <PerformanceGauge 
+                      value={Math.max(0, 100 - (performanceMetrics.avgProcessingTime || 0) * 10)} 
+                      label="Rapidité de Traitement" 
+                      color="#ffc107" 
+                    />
+                  </div>
+                </div>
+
+                {/* Performance Stats */}
+                <div className="admin-dashboard-section">
+                  <h2>📈 Statistiques de Performance</h2>
+                  <div className="admin-dashboard-performance-stats">
+                    <div className="performance-stat">
+                      <h4>⏱️ Temps de Traitement Moyen</h4>
+                      <p className="stat-value">{(performanceMetrics.avgProcessingTime || 0).toFixed(1)} jours</p>
+                    </div>
+                    <div className="performance-stat">
+                      <h4>⏳ Demandes en Attente</h4>
+                      <p className="stat-value">{performanceMetrics.pendingRequests || 0}</p>
+                    </div>
+                    <div className="performance-stat">
+                      <h4>✅ Taux d'Approbation</h4>
+                      <p className="stat-value">{(performanceMetrics.approvalRate || 0).toFixed(1)}%</p>
+                    </div>
+                    <div className="performance-stat">
+                      <h4>❌ Taux de Rejet</h4>
+                      <p className="stat-value">{(performanceMetrics.rejectionRate || 0).toFixed(1)}%</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Weekly Comparison */}
+                <div className="admin-dashboard-section">
+                  <h2>📊 Comparaison Hebdomadaire</h2>
+                  <div className="admin-dashboard-weekly-comparison">
+                    {(performanceMetrics.weeklyComparison || []).map((week, index) => (
+                      <div key={index} className="weekly-card">
+                        <h4>{week.period === 'This Week' ? 'Cette Semaine' : 'Semaine Dernière'}</h4>
+                        <div className="weekly-stats">
+                          <div className="weekly-stat">
+                            <span>Demandes:</span>
+                            <span>{week.count || 0}</span>
+                          </div>
+                          <div className="weekly-stat">
+                            <span>Valeur:</span>
+                            <span>{formatCurrency(week.totalValue)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* System Health */}
+                {performanceMetrics.systemHealth && (
+                  <div className="admin-dashboard-section">
+                    <h2>🔧 Santé du Système</h2>
+                    <div className="admin-dashboard-system-health">
+                      <div className="health-metric">
+                        <h4>👥 Utilisateurs Totaux</h4>
+                        <p>{performanceMetrics.systemHealth.totalUsers || 0}</p>
+                      </div>
+                      <div className="health-metric">
+                        <h4>📦 Catégories Actives</h4>
+                        <p>{performanceMetrics.systemHealth.activeCategories || 0}</p>
+                      </div>
+                      <div className="health-metric">
+                        <h4>🎯 Articles Actifs</h4>
+                        <p>{performanceMetrics.systemHealth.activeItems || 0}</p>
+                      </div>
+                      <div className="health-metric">
+                        <h4>🔥 Activité (7 jours)</h4>
+                        <p>{performanceMetrics.systemHealth.lastWeekActivity || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="admin-dashboard-loading">
+                <p>Chargement des métriques de performance...</p>
+                <button onClick={fetchPerformanceMetrics} className="retry-button">
+                  Réessayer
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Export Tab */}
+        {activeTab === 'export' && (
+          <div className="admin-dashboard-export">
+            <div className="admin-dashboard-section">
+              <h2>📋 Export des Données</h2>
+              <p>Exportez les données des demandes au format CSV pour analyse externe.</p>
+              
+              {/* Export Filters */}
+              <div className="admin-dashboard-export-filters">
+                <div className="filter-group">
+                  <label htmlFor="categoryFilter">Filtrer par Catégorie:</label>
+                  <select
+                    id="categoryFilter"
+                    value={exportFilters.categorieId}
+                    onChange={(e) => setExportFilters(prev => ({
+                      ...prev,
+                      categorieId: e.target.value
+                    }))}
+                    className="admin-dashboard-select"
+                  >
+                    <option value="">Toutes les catégories</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.nom}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label htmlFor="userFilter">Filtrer par Utilisateur:</label>
+                  <select
+                    id="userFilter"
+                    value={exportFilters.utilisateurId}
+                    onChange={(e) => setExportFilters(prev => ({
+                      ...prev,
+                      utilisateurId: e.target.value
+                    }))}
+                    className="admin-dashboard-select"
+                  >
+                    <option value="">Tous les utilisateurs</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.nom} {user.prenom}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Export Button */}
+              <div className="admin-dashboard-export-actions">
+                <button
+                  onClick={exportToExcel}
+                  disabled={exportLoading}
+                  className="admin-dashboard-export-button"
+                >
+                  {exportLoading ? (
+                    <>
+                      <span className="spinner-small"></span>
+                      Export en cours...
+                    </>
+                  ) : (
+                    <>
+                      📁 Exporter en CSV
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Export Info */}
+              <div className="admin-dashboard-export-info">
+                <h4>ℹ️ Informations sur l'Export</h4>
+                <ul>
+                  <li>Le fichier sera téléchargé au format CSV</li>
+                  <li>Encodage UTF-8 compatible avec Excel</li>
+                  <li>Inclut toutes les données de demandes et paiements</li>
+                  <li>Les filtres appliqués réduiront le jeu de données</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
