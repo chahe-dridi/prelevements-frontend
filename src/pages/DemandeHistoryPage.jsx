@@ -49,10 +49,10 @@ const DemandeHistoryPage = () => {
     return isNaN(d.getTime()) ? "Format de date invalide" : d.toLocaleString("fr-FR");
   };
 
-  // FIXED Helper function for items display
+  // Helper function for items display
   const formatItemsDisplay = (demandeItems) => {
     if (!demandeItems || demandeItems.length === 0) {
-      return { visibleItems: [], hasMore: false, totalCount: 0 }; // Return object, not array
+      return { visibleItems: [], hasMore: false, totalCount: 0 };
     }
     
     // Show max 3 items, then indicate if there are more
@@ -101,27 +101,33 @@ const DemandeHistoryPage = () => {
     return statusValue === 0 || statusValue === '0' || String(statusValue).toLowerCase() === 'enattente';
   };
 
-  const calculateTotal = (demandeItems) => {
-    if (!demandeItems) return 0;
-    return demandeItems.reduce((total, item) => {
-      return total + (item.quantite * item.item.prixUnitaire);
-    }, 0);
-  };
+  // UPDATED: Handle new price structure - check prixUnitaire on demandeItem first, then fallback to item
+ const calculateTotal = (demandeItems) => {
+  if (!demandeItems) return 0;
+  return demandeItems.reduce((total, demandeItem) => {
+    // Priority: demandeItem.prixUnitaire > item.prixUnitaire > 0
+    const unitPrice = demandeItem.prixUnitaire || demandeItem.item?.prixUnitaire || 0;
+    return total + (demandeItem.quantite * unitPrice);
+  }, 0);
+};
 
+  // UPDATED: Modal total calculation with new price structure
   const calculateModalTotal = () => {
     if (!availableItems || !updatedItems) return 0;
     return Object.entries(updatedItems).reduce((total, [itemId, quantity]) => {
       if (quantity > 0) {
         const item = availableItems.find(i => i.id === itemId);
         if (item) {
-          return total + (quantity * item.prixUnitaire);
+          // Use the item's base price for estimation in modal
+          const unitPrice = item.prixUnitaire || 0;
+          return total + (quantity * unitPrice);
         }
       }
       return total;
     }, 0);
   };
 
-  // FIXED Enhanced fetch function - now uses consistent endpoint
+  // Enhanced fetch function - now uses consistent endpoint
   const fetchDemandes = async (page = 1) => {
     try {
       setLoading(true);
@@ -253,7 +259,7 @@ const DemandeHistoryPage = () => {
     }
   };
 
-  // Update modal functions (existing code)
+  // Update modal functions
   const handleCategoryChange = (categoryId) => {
     setSelectedCategoryId(categoryId);
     
@@ -513,7 +519,7 @@ const DemandeHistoryPage = () => {
                     <p className="card-description">{demande.categorie?.description}</p>
                   </div>
 
-                  {/* FIXED ITEMS SECTION */}
+                  {/* ITEMS SECTION with description display */}
                   <div className="card-items">
                     <h4 className="items-title">Articles demandés:</h4>
                     <div className="items-list">
@@ -525,9 +531,18 @@ const DemandeHistoryPage = () => {
                               <>
                                 {visibleItems.map(di => (
                                   <div key={di.id} className="item-detail">
-                                    <span className="item-name" title={di.item.nom}>{di.item.nom}</span>
+                                    <span className="item-name" title={di.item.nom}>
+                                      {di.item.nom}
+                                      {di.description && (
+                                        <span className="item-description"> ({di.description})</span>
+                                      )}
+                                    </span>
                                     <span className="item-qty">×{di.quantite}</span>
-                              
+                                    {(di.prixUnitaire || di.item?.prixUnitaire) && (
+                                      <span className="item-price">
+                                        {(di.prixUnitaire || di.item.prixUnitaire).toFixed(2)}DT
+                                      </span>
+                                    )}
                                   </div>
                                 ))}
                                 {hasMore && (
@@ -634,7 +649,7 @@ const DemandeHistoryPage = () => {
         </div>
       )}
 
-      {/* Update Modal (existing code unchanged) */}
+      {/* Update Modal */}
       {showUpdateModal && selectedDemande && (
         <div className="modal-overlay">
           <div className="modal-content modal-large">
@@ -683,7 +698,9 @@ const DemandeHistoryPage = () => {
                       <div key={item.id} className={`modal-item-row ${updatedItems[item.id] > 0 ? 'item-selected' : ''}`}>
                         <div className="modal-item-info">
                           <div className="modal-item-name">{item.nom}</div>
-                       
+                          {item.prixUnitaire && (
+                            <div className="modal-item-price">Prix estimé: {item.prixUnitaire.toFixed(2)}DT</div>
+                          )}
                         </div>
                         <div className="modal-item-quantity">
                           <label>Quantité:</label>
