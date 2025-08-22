@@ -657,3 +657,86 @@
     font-size: 0.8rem;
   }
 }
+
+
+/* Add these styles to your existing CSS file */
+
+.price-input {
+  width: 100px;
+  padding: 6px 8px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.price-input:focus {
+  outline: none;
+  border-color: #4f8cff;
+  box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.1);
+}
+
+.pricing-info {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.pricing-info p {
+  margin: 0 0 8px 0;
+  color: #0284c7;
+}
+
+.pricing-info p:last-child {
+  margin-bottom: 0;
+}
+
+.modal-items-table {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.modal-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+}
+
+.modal-item-name {
+  flex: 1;
+  font-weight: 500;
+  color: #374151;
+}
+
+.price-input-small {
+  width: 80px;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.modal-item-total {
+  min-width: 80px;
+  text-align: right;
+  font-weight: 500;
+  color: #059669;
+}
+
+.modal-total {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 2px solid #e2e8f0;
+  text-align: right;
+  font-size: 1.1rem;
+  color: #059669;
+}

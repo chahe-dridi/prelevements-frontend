@@ -11,7 +11,7 @@ const DemandePage = () => {
   const [selectedItems, setSelectedItems] = useState({}); // { itemId: quantity }
 
   const [newCategory, setNewCategory] = useState({ nom: '', description: '' });
-  const [newItem, setNewItem] = useState({ nom: '', prixUnitaire: '', categorieId: '' });
+  const [newItem, setNewItem] = useState({ nom: '', categorieId: '' });
 
   // Edit states
   const [editingCategory, setEditingCategory] = useState(null);
@@ -243,7 +243,7 @@ const DemandePage = () => {
 
   // Item CRUD operations
   const handleAddItem = async () => {
-    if (!newItem.nom.trim() || !newItem.prixUnitaire || !newItem.categorieId) {
+    if (!newItem.nom.trim() || !newItem.categorieId) {
       showMessage('Veuillez remplir tous les champs pour ajouter un item.', 'error');
       return;
     }
@@ -257,7 +257,7 @@ const DemandePage = () => {
         },
         body: JSON.stringify({
           nom: newItem.nom,
-          prixUnitaire: parseFloat(newItem.prixUnitaire),
+       
           categorieId: newItem.categorieId,
         })
       });
@@ -266,7 +266,7 @@ const DemandePage = () => {
         throw new Error(errText || 'Erreur lors de l\'ajout de l\'item');
       }
       showMessage('✅ Item ajouté avec succès!', 'success');
-      setNewItem({ nom: '', prixUnitaire: '', categorieId: '' });
+      setNewItem({ nom: '' , categorieId: '' });
       await fetchCategories();
     } catch (err) {
       showMessage(`❌ Erreur: ${err.message}`, 'error');
@@ -281,7 +281,7 @@ const DemandePage = () => {
   };
 
   const handleUpdateItem = async () => {
-    if (!editingItem.nom.trim() || !editingItem.prixUnitaire || !editingItem.categorieId) {
+    if (!editingItem.nom.trim() ||   !editingItem.categorieId) {
       showMessage('Veuillez remplir tous les champs.', 'error');
       return;
     }
@@ -295,7 +295,7 @@ const DemandePage = () => {
         },
         body: JSON.stringify({
           nom: editingItem.nom,
-          prixUnitaire: parseFloat(editingItem.prixUnitaire),
+         
           categorieId: editingItem.categorieId
         })
       });
@@ -388,7 +388,7 @@ const DemandePage = () => {
               <div key={item.id} className="item-row">
                 <div className="item-info">
                   <div className="item-name">{item.nom}</div>
-                  <div className="item-price">Prix: {item.prixUnitaire}DT</div>
+                 
                 </div>
                 <div className="item-quantity">
                   <label className="quantity-label">Quantité:</label>
@@ -511,19 +511,7 @@ const DemandePage = () => {
                     disabled={loading}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Prix unitaire (DT)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="form-input"
-                    placeholder="0.00"
-                    value={newItem.prixUnitaire}
-                    onChange={e => setNewItem({ ...newItem, prixUnitaire: e.target.value })}
-                    disabled={loading}
-                  />
-                </div>
+                 
               </div>
               <div className="admin-form-row single">
                 <div className="form-group">
@@ -544,7 +532,7 @@ const DemandePage = () => {
               <button 
                 className="btn btn-success" 
                 onClick={handleAddItem} 
-                disabled={loading || !newItem.nom.trim() || !newItem.prixUnitaire || !newItem.categorieId}
+                disabled={loading || !newItem.nom.trim()   || !newItem.categorieId}
               >
                 {loading ? '⏳ Ajout...' : '➕ Ajouter Item'}
               </button>
@@ -562,7 +550,7 @@ const DemandePage = () => {
                         <div className="admin-item-description">
                           Catégorie: {category.nom}
                         </div>
-                        <div className="admin-item-price">{item.prixUnitaire} DT</div>
+                         
                       </div>
                       <div className="admin-item-actions">
                         <button
@@ -679,18 +667,8 @@ const DemandePage = () => {
                   disabled={loading}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Prix unitaire (DT)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="form-input"
-                  value={editingItem.prixUnitaire}
-                  onChange={e => setEditingItem({ ...editingItem, prixUnitaire: e.target.value })}
-                  disabled={loading}
-                />
-              </div>
+            
+              
               <div className="form-group">
                 <label className="form-label">Catégorie</label>
                 <select
@@ -710,7 +688,7 @@ const DemandePage = () => {
               <button
                 className="btn btn-success"
                 onClick={handleUpdateItem}
-                disabled={loading || !editingItem.nom.trim() || !editingItem.prixUnitaire || !editingItem.categorieId}
+                disabled={loading || !editingItem.nom.trim()   || !editingItem.categorieId}
               >
                 {loading ? '⏳ Mise à jour...' : '💾 Enregistrer'}
               </button>

@@ -5,20 +5,22 @@ import '../assets/UsersAdmin.css';
 import Footer from './Footer';
 
 const UsersAdmin = () => {
-  const { token, userRole, userEmail } = useContext(AuthContext); // Add userEmail
+  const { token, userRole, userEmail } = useContext(AuthContext);
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingUserId, setUpdatingUserId] = useState(null);
+  const [updatingFaveurUserId, setUpdatingFaveurUserId] = useState(null); // New state
   const [showModal, setShowModal] = useState(false);
-  const [showRoleConfirmModal, setShowRoleConfirmModal] = useState(false); // New state
+  const [showRoleConfirmModal, setShowRoleConfirmModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({ 
     nom: "", 
     prenom: "", 
     email: "", 
     role: "",
+    is_Faveur: false,
     password: "",
     confirmPassword: "",
     updatePassword: false
@@ -45,6 +47,69 @@ const UsersAdmin = () => {
   // Check if the user is the current logged-in user
   const isCurrentUser = (user) => {
     return user.email === userEmail;
+  };
+
+  // New function to toggle Faveur status directly
+  const toggleFaveurStatus = async (userId, currentStatus) => {
+    const user = users.find(u => u.id === userId);
+    
+    if (!window.confirm(`Êtes-vous sûr de vouloir ${currentStatus ? 'retirer' : 'accorder'} le statut privilégié à ${user?.nom} ${user?.prenom}?`)) {
+      return;
+    }
+
+    setUpdatingFaveurUserId(userId);
+    setError("");
+
+    try {
+      const updateData = {
+        nom: user.nom,
+        prenom: user.prenom,
+        email: user.email,
+        role: user.role,
+        is_Faveur: !currentStatus // Toggle the status
+      };
+
+      const response = await fetch(`https://localhost:7101/api/Users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || 'Échec de la mise à jour du statut privilégié';
+        } catch {
+          const errorText = await response.text();
+          errorMessage = errorText || 'Échec de la mise à jour du statut privilégié';
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+
+      // Update the user in the state
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === userId
+            ? { ...u, is_Faveur: !currentStatus }
+            : u
+        )
+      );
+      
+      const statusText = !currentStatus ? 'accordé' : 'retiré';
+      showMessage(`✅ Statut privilégié ${statusText} avec succès!`, 'success');
+      
+    } catch (err) {
+      setError(err.message);
+      showMessage(`❌ Erreur: ${err.message}`, 'error');
+    } finally {
+      setUpdatingFaveurUserId(null);
+    }
   };
 
   useEffect(() => {
@@ -101,11 +166,13 @@ const UsersAdmin = () => {
       const prenom = (user.prenom || '').toLowerCase();
       const email = (user.email || '').toLowerCase();
       const role = convertRoleToString(user.role).toLowerCase();
+      const faveurText = user.is_Faveur ? 'oui' : 'non';
       
       return nom.includes(searchTermLower) || 
              prenom.includes(searchTermLower) || 
              email.includes(searchTermLower) ||
-             role.includes(searchTermLower);
+             role.includes(searchTermLower) ||
+             faveurText.includes(searchTermLower);
     });
   }, [users, searchTerm]);
 
@@ -132,6 +199,7 @@ const UsersAdmin = () => {
       prenom: user.prenom,
       email: user.email,
       role: convertRoleToString(user.role),
+      is_Faveur: user.is_Faveur || false, 
       password: "",
       confirmPassword: "",
       updatePassword: false
@@ -148,6 +216,7 @@ const UsersAdmin = () => {
       prenom: "", 
       email: "", 
       role: "",
+      is_Faveur: false,
       password: "",
       confirmPassword: "",
       updatePassword: false
@@ -279,7 +348,8 @@ const UsersAdmin = () => {
       nom: editForm.nom.trim(),
       prenom: editForm.prenom.trim(),
       email: editForm.email.trim(),
-      role: roleEnumValue
+      role: roleEnumValue,
+      is_Faveur: editForm.is_Faveur 
     };
 
     // Add password fields if updating password
@@ -315,7 +385,7 @@ const UsersAdmin = () => {
       setUsers(prev =>
         prev.map(u =>
           u.id === editingUser.id
-            ? { ...u, nom: editForm.nom, prenom: editForm.prenom, email: editForm.email, role: roleEnumValue }
+            ? { ...u, nom: editForm.nom, prenom: editForm.prenom, email: editForm.email, role: roleEnumValue, is_Faveur: editForm.is_Faveur }
             : u
         )
       );
@@ -513,7 +583,7 @@ const UsersAdmin = () => {
         <div className="search-box">
           <input
             type="text"
-            placeholder="🔍 Rechercher par nom, prénom, email ou rôle..."
+            placeholder="🔍 Rechercher par nom, prénom, email, rôle ou faveur..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -548,12 +618,15 @@ const UsersAdmin = () => {
                   <th>👤 Prénom</th>
                   <th>📧 Email</th>
                   <th>🏷️ Rôle</th>
+                  <th>⭐ Faveur</th>
                   <th>⚙️ Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {currentUsers.map(user => {
                   const isCurrentUserRow = isCurrentUser(user);
+                  const isUpdatingFaveur = updatingFaveurUserId === user.id;
+                  
                   return (
                     <tr key={user.id} className={`${updatingUserId === user.id ? 'updating' : ''} ${isCurrentUserRow ? 'current-user-row' : ''}`}>
                       <td>
@@ -568,11 +641,27 @@ const UsersAdmin = () => {
                         </span>
                       </td>
                       <td>
+                        <button
+                          className={`faveur-toggle-button ${user.is_Faveur ? 'faveur-active' : 'faveur-inactive'}`}
+                          onClick={() => toggleFaveurStatus(user.id, user.is_Faveur)}
+                          disabled={isUpdatingFaveur || updatingUserId === user.id}
+                          title={user.is_Faveur ? "Cliquez pour retirer le statut privilégié" : "Cliquez pour accorder le statut privilégié"}
+                        >
+                          {isUpdatingFaveur ? (
+                            <span className="loading-spinner-small">⏳</span>
+                          ) : (
+                            <span className={`faveur-badge ${user.is_Faveur ? 'faveur-yes' : 'faveur-no'}`}>
+                              {user.is_Faveur ? '⭐ Oui' : '❌ Non'}
+                            </span>
+                          )}
+                        </button>
+                      </td>
+                      <td>
                         <div className="actions-cell">
                           <button 
                             className="edit-button"
                             onClick={() => openEditModal(user)}
-                            disabled={updatingUserId === user.id}
+                            disabled={updatingUserId === user.id || isUpdatingFaveur}
                             title={isCurrentUserRow ? "Modifier votre profil (rôle non modifiable)" : "Modifier l'utilisateur"}
                           >
                             ✏️ Modifier
@@ -581,7 +670,7 @@ const UsersAdmin = () => {
                           <button 
                             className="delete-button"
                             onClick={() => handleDeleteUser(user.id)}
-                            disabled={updatingUserId === user.id || isCurrentUserRow}
+                            disabled={updatingUserId === user.id || isCurrentUserRow || isUpdatingFaveur}
                             title={isCurrentUserRow ? "Vous ne pouvez pas supprimer votre propre compte" : "Supprimer l'utilisateur"}
                           >
                             🗑️ Supprimer
@@ -680,6 +769,22 @@ const UsersAdmin = () => {
                     ⚠️ Vous ne pouvez pas modifier votre propre rôle
                   </div>
                 )}
+              </div>
+
+              {/* Keep the Faveur checkbox in modal for reference */}
+              <div className="form-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_Faveur}
+                    onChange={(e) => setEditForm({ ...editForm, is_Faveur: e.target.checked })}
+                    className="form-checkbox"
+                  />
+                  <span className="checkbox-text">⭐ Utilisateur privilégié (Faveur)</span>
+                </label>
+                <small className="form-hint">
+                  💡 Astuce: Vous pouvez aussi basculer ce statut directement depuis le tableau principal
+                </small>
               </div>
 
               {/* Password Update Section */}

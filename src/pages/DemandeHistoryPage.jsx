@@ -527,7 +527,7 @@ const DemandeHistoryPage = () => {
                                   <div key={di.id} className="item-detail">
                                     <span className="item-name" title={di.item.nom}>{di.item.nom}</span>
                                     <span className="item-qty">×{di.quantite}</span>
-                                    <span className="item-price">{di.item.prixUnitaire}DT</span>
+                              
                                   </div>
                                 ))}
                                 {hasMore && (
@@ -683,7 +683,7 @@ const DemandeHistoryPage = () => {
                       <div key={item.id} className={`modal-item-row ${updatedItems[item.id] > 0 ? 'item-selected' : ''}`}>
                         <div className="modal-item-info">
                           <div className="modal-item-name">{item.nom}</div>
-                          <div className="modal-item-price">Prix: {item.prixUnitaire}DT</div>
+                       
                         </div>
                         <div className="modal-item-quantity">
                           <label>Quantité:</label>
