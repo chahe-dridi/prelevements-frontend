@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import '../assets/AdminDashboard.css';
+import FinancialAnalytics from './FinancialAnalytics';
 
 const AdminDashboard = () => {
   const { token } = useContext(AuthContext);
@@ -562,6 +563,14 @@ const exportToExcel = async () => {
         >
           📈 Analytics
         </button>
+
+        <button 
+          className={`admin-dashboard-tab ${activeTab === 'financial' ? 'active' : ''}`}
+          onClick={() => setActiveTab('financial')}
+        >
+          💰 Finances
+        </button>
+
         <button 
           className={`admin-dashboard-tab ${activeTab === 'insights' ? 'active' : ''}`}
           onClick={() => setActiveTab('insights')}
@@ -580,6 +589,17 @@ const exportToExcel = async () => {
         >
           📋 Export
         </button>
+      </div>
+
+
+       <div className="admin-dashboard-content">
+        
+        {/* ...existing tabs... */}
+
+        {/* Financial Analytics Tab - Add this after the analytics tab */}
+        {activeTab === 'financial' && <FinancialAnalytics />}
+
+        {/* ...rest of existing tabs... */}
       </div>
 
       {/* Tab Content */}

@@ -13,9 +13,33 @@ function Footer() {
                             Votre solution complète pour la gestion des demandes de prélèvements.
                         </p>
                         <div className="footer-social">
-                            <span className="social-link">📧</span>
-                            <span className="social-link">📞</span>
-                            <span className="social-link">🌐</span>
+                            <a 
+                                href="mailto:chaher.dridi@esprit.tn" 
+                                className="social-link"
+                                title="Email"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                📧
+                            </a>
+                            <a 
+                                href="https://www.linkedin.com/in/chaher-dridi-790b72219" 
+                                className="social-link"
+                                title="LinkedIn"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                💼
+                            </a>
+                            <a 
+                                href="https://github.com/chahe-dridi" 
+                                className="social-link"
+                                title="GitHub"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                🌐
+                            </a>
                         </div>
                     </div>
                     
@@ -32,7 +56,12 @@ function Footer() {
                         <h4 className="footer-subtitle">Support</h4>
                         <div className="footer-links">
                             <span className="footer-link">📞 +216 XX XXX XXX</span>
-                            <span className="footer-link">📧 support@prelevements.com</span>
+                            <a 
+                                href="mailto:chaher.dridi@esprit.tn" 
+                                className="footer-link"
+                            >
+                                📧 chaher.dridi@esprit.tn
+                            </a>
                             <span className="footer-link">🕒 Lun-Ven: 8h-17h</span>
                         </div>
                     </div>
