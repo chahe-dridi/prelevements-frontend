@@ -406,33 +406,52 @@ const exportToExcel = async () => {
 
   // Simple chart component for monthly trends
   const MonthlyTrendsChart = ({ data }) => {
-    if (!data || !Array.isArray(data) || data.length === 0) {
-      return <p className="admin-dashboard-no-data">Aucune donnée disponible</p>;
-    }
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return <p className="admin-dashboard-no-data">Aucune donnée disponible</p>;
+  }
 
-    const validData = data.filter(d => d && typeof d.totalSpent === 'number');
-    if (validData.length === 0) {
-      return <p className="admin-dashboard-no-data">Aucune donnée valide disponible</p>;
-    }
+  const validData = data.filter(d => d && typeof d.totalSpent === 'number');
+  if (validData.length === 0) {
+    return <p className="admin-dashboard-no-data">Aucune donnée valide disponible</p>;
+  }
 
-    const maxValue = Math.max(...validData.map(d => d.totalSpent));
-    
-    return (
-      <div className="admin-dashboard-chart">
-        <div className="admin-dashboard-chart-bars">
-          {validData.slice(-6).map((trend, index) => (
+  // Take the last 6 months and ensure we have meaningful data
+  const chartData = validData.slice(-6);
+  const maxValue = Math.max(...chartData.map(d => d.totalSpent));
+  
+  // Set a minimum scale to ensure bars are visible
+  const minScale = 20; // Minimum percentage for the smallest bar
+  
+      return (
+    <div className="admin-dashboard-chart">
+      <div className="admin-dashboard-chart-bars">
+        {chartData.map((trend, index) => {
+          // Calculate height with minimum scale
+          let heightPercentage = 0;
+          if (maxValue > 0) {
+            heightPercentage = Math.max(
+              minScale, 
+              (trend.totalSpent / maxValue) * 100
+            );
+          } else {
+            heightPercentage = minScale;
+          }
+
+          return (
             <div key={index} className="admin-dashboard-chart-bar-container">
               <div 
                 className="admin-dashboard-chart-bar"
                 style={{ 
-                  height: `${maxValue > 0 ? (trend.totalSpent / maxValue) * 100 : 0}%`,
-                  minHeight: '5px'
+                  height: `${heightPercentage}%`
                 }}
                 title={`${trend.totalDemandes || 0} demandes - ${formatCurrency(trend.totalSpent)}`}
               />
               <div className="admin-dashboard-chart-label">
                 {trend.year && trend.month ? 
-                  new Date(trend.year, trend.month - 1).toLocaleDateString('fr-FR', { month: 'short' }) :
+                  new Date(trend.year, trend.month - 1).toLocaleDateString('fr-FR', { 
+                    month: 'short',
+                    year: '2-digit'
+                  }) :
                   'N/A'
                 }
               </div>
@@ -440,11 +459,12 @@ const exportToExcel = async () => {
                 {formatCurrency(trend.totalSpent)}
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   // Performance gauge component
   const PerformanceGauge = ({ value, label, max = 100, color = '#667eea' }) => {
