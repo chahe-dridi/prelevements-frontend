@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import '../assets/DemandeHistoryPage.css';
+ 
+import Footer from '../components/Footer';
+
 
 const DemandeHistoryPage = () => {
   const { token, userEmail } = useContext(AuthContext);
@@ -452,6 +455,7 @@ const DemandeHistoryPage = () => {
         <div className="loading-container">
           <div className="loading-text">🔄 Chargement de l'historique...</div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -467,6 +471,7 @@ const DemandeHistoryPage = () => {
           <h3>Erreur d'authentification</h3>
           <p>Veuillez vous connecter pour accéder à votre historique.</p>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -788,6 +793,9 @@ const DemandeHistoryPage = () => {
           </div>
         </div>
       )}
+
+      {/* Footer Component */}
+      <Footer />
     </div>
   );
 };

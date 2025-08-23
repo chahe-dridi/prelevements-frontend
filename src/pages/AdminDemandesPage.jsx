@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import '../assets/AdminDemandesPage.css';
+import Footer from '../components/Footer';
 
 export default function AdminDemandesPage() {
   const [demandes, setDemandes] = useState([]);
@@ -288,6 +289,7 @@ export default function AdminDemandesPage() {
         <div className="loading-message">
           🔄 Chargement des demandes...
         </div>
+        <Footer />
       </div>
     );
   }
@@ -302,6 +304,7 @@ export default function AdminDemandesPage() {
             🔄 Réessayer
           </button>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -319,6 +322,7 @@ export default function AdminDemandesPage() {
             <p className="empty-state-subtitle">Il n'y a actuellement aucune demande à afficher.</p>
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -571,6 +575,9 @@ export default function AdminDemandesPage() {
           </div>
         </div>
       )}
+
+      {/* Footer Component */}
+      <Footer />
     </div>
   );
 }

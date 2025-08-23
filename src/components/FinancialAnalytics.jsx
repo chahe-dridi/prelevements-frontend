@@ -1,3 +1,5 @@
+// Replace the existing component with this updated version:
+
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import '../assets/FinancialAnalytics.css';
@@ -7,7 +9,7 @@ const FinancialAnalytics = () => {
   
   // State for financial data
   const [financialData, setFinancialData] = useState({
-    faveurAnalytics: [],
+    effectueParAnalytics: [], // Changed from faveurAnalytics
     categoryAnalytics: [],
     userSpendingAnalytics: [],
     itemAnalytics: []
@@ -232,7 +234,7 @@ const FinancialAnalytics = () => {
                 checked={filters.showFaveurOnly}
                 onChange={(e) => handleFilterChange('showFaveurOnly', e.target.checked)}
               />
-              Utilisateurs Faveur uniquement
+              Demandes Faveur uniquement
             </label>
           </div>
         </div>
@@ -247,33 +249,48 @@ const FinancialAnalytics = () => {
         </div>
       </div>
 
-      {/* Faveur Users Analysis */}
+      {/* Payment Executors Analysis (EffectuePar) */}
       <div className="financial-analytics-section">
-        <h2>👑 Analyse des Utilisateurs Faveur</h2>
-        <div className="faveur-analytics-grid">
-          {financialData.faveurAnalytics && financialData.faveurAnalytics.length > 0 ? (
-            financialData.faveurAnalytics.map((user, index) => (
-              <div key={user.userId || index} className="faveur-card">
-                <div className="faveur-rank">#{index + 1}</div>
-                <div className="faveur-info">
-                  <h4>{user.userName || 'Utilisateur inconnu'}</h4>
-                  <div className="faveur-stats">
+        <h2>👨‍💼 Analyse des Exécuteurs de Paiement</h2>
+        <p className="section-description">
+          Analyse des personnes qui effectuent les paiements (champ "EffectuéPar")
+        </p>
+        <div className="effectue-par-analytics-grid">
+          {financialData.effectueParAnalytics && financialData.effectueParAnalytics.length > 0 ? (
+            financialData.effectueParAnalytics.map((executor, index) => (
+              <div key={executor.executorName || index} className="executor-card">
+                <div className="executor-rank">#{index + 1}</div>
+                <div className="executor-info">
+                  <h4>{executor.executorName || 'Exécuteur inconnu'}</h4>
+                  <div className="executor-stats">
                     <div className="stat-item">
-                      <span className="stat-label">💰 Total dépensé:</span>
-                      <span className="stat-value">{formatCurrency(user.totalSpent)}</span>
+                      <span className="stat-label">💰 Total traité:</span>
+                      <span className="stat-value">{formatCurrency(executor.totalSpent)}</span>
                     </div>
                     <div className="stat-item">
-                      <span className="stat-label">📋 Demandes:</span>
-                      <span className="stat-value">{user.totalDemandes || 0}</span>
+                      <span className="stat-label">💳 Paiements effectués:</span>
+                      <span className="stat-value">{executor.totalPayments || 0}</span>
                     </div>
                     <div className="stat-item">
-                      <span className="stat-label">📊 Moyenne/demande:</span>
-                      <span className="stat-value">{formatCurrency(user.averagePerRequest)}</span>
+                      <span className="stat-label">📊 Moyenne/paiement:</span>
+                      <span className="stat-value">{formatCurrency(executor.averagePerPayment)}</span>
                     </div>
                     <div className="stat-item">
-                      <span className="stat-label">📅 Dernière activité:</span>
+                      <span className="stat-label">👥 Utilisateurs servis:</span>
+                      <span className="stat-value">{executor.uniqueUsers || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">👑 Paiements Faveur:</span>
+                      <span className="stat-value faveur">{executor.faveurPayments || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">👤 Paiements Réguliers:</span>
+                      <span className="stat-value regular">{executor.regularPayments || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">📅 Dernier paiement:</span>
                       <span className="stat-value">
-                        {user.lastActivity ? new Date(user.lastActivity).toLocaleDateString('fr-FR') : 'N/A'}
+                        {executor.lastPaymentDate ? new Date(executor.lastPaymentDate).toLocaleDateString('fr-FR') : 'N/A'}
                       </span>
                     </div>
                   </div>
@@ -281,7 +298,7 @@ const FinancialAnalytics = () => {
               </div>
             ))
           ) : (
-            <p className="no-data">Aucune donnée utilisateur faveur disponible</p>
+            <p className="no-data">Aucune donnée d'exécuteur de paiement disponible</p>
           )}
         </div>
       </div>
@@ -297,6 +314,7 @@ const FinancialAnalytics = () => {
             <div className="table-cell">Demandes</div>
             <div className="table-cell">Total dépensé</div>
             <div className="table-cell">Moyenne</div>
+            <div className="table-cell">Traité par</div>
           </div>
           {financialData.userSpendingAnalytics && financialData.userSpendingAnalytics.length > 0 ? (
             financialData.userSpendingAnalytics.map((user, index) => (
@@ -318,11 +336,14 @@ const FinancialAnalytics = () => {
                 <div className="table-cell">{user.totalDemandes || 0}</div>
                 <div className="table-cell amount">{formatCurrency(user.totalSpent)}</div>
                 <div className="table-cell">{formatCurrency(user.averagePerRequest)}</div>
+                <div className="table-cell">
+                  <span className="processor-name">{user.processedBy || 'N/A'}</span>
+                </div>
               </div>
             ))
           ) : (
             <div className="table-row">
-              <div className="table-cell no-data" colSpan="6">Aucune donnée utilisateur disponible</div>
+              <div className="table-cell no-data" colSpan="7">Aucune donnée utilisateur disponible</div>
             </div>
           )}
         </div>
@@ -362,6 +383,19 @@ const FinancialAnalytics = () => {
                   </div>
                 </div>
                 
+                {/* Top executors for this category */}
+                {category.topExecutors && category.topExecutors.length > 0 && (
+                  <div className="category-executors">
+                    <h5>👨‍💼 Top Exécuteurs:</h5>
+                    {category.topExecutors.map((executor, execIndex) => (
+                      <div key={execIndex} className="executor-summary">
+                        <span className="executor-name">{executor.executorName}</span>
+                        <span className="executor-value">{formatCurrency(executor.totalAmount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Top items in this category */}
                 {category.topItems && category.topItems.length > 0 && (
                   <div className="category-items">
@@ -394,6 +428,7 @@ const FinancialAnalytics = () => {
             <div className="table-cell">Valeur totale</div>
             <div className="table-cell">Prix moyen</div>
             <div className="table-cell">Fréquence</div>
+            <div className="table-cell">Top Exécuteur</div>
           </div>
           {financialData.itemAnalytics && financialData.itemAnalytics.length > 0 ? (
             financialData.itemAnalytics.map((item, index) => (
@@ -411,11 +446,14 @@ const FinancialAnalytics = () => {
                 <div className="table-cell amount">{formatCurrency(item.totalValue)}</div>
                 <div className="table-cell">{formatCurrency(item.averagePrice)}</div>
                 <div className="table-cell">{item.orderFrequency || 0} commandes</div>
+                <div className="table-cell">
+                  <span className="top-executor">{item.topExecutor || 'N/A'}</span>
+                </div>
               </div>
             ))
           ) : (
             <div className="table-row">
-              <div className="table-cell no-data" colSpan="7">Aucune donnée article disponible</div>
+              <div className="table-cell no-data" colSpan="8">Aucune donnée article disponible</div>
             </div>
           )}
         </div>

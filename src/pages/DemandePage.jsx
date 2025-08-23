@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react'; 
 import { AuthContext } from '../context/AuthContext';
 import '../assets/DemandePage.css';
+import Footer from '../components/Footer';
 
 const DemandePage = () => {
   const { token, userRole } = useContext(AuthContext);
@@ -750,6 +751,9 @@ const DemandePage = () => {
           </div>
         </div>
       )}
+
+      {/* Footer Component */}
+      <Footer />
     </div>
   );
 };

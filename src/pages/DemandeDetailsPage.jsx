@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { convertAmountToFrench } from '../utils/numberToFrench';
 import '../assets/DemandeDetailsPage.css';
+import Footer from '../components/Footer';
 
 export default function DemandeDetailsPage() {
   const { id } = useParams();
@@ -669,6 +670,7 @@ export default function DemandeDetailsPage() {
             🔄 Chargement des détails...
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -686,6 +688,7 @@ export default function DemandeDetailsPage() {
             ← Retour à la liste
           </button>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -1063,6 +1066,9 @@ export default function DemandeDetailsPage() {
           </div>
         </div>
       )}
+
+      {/* Footer Component */}
+      <Footer />
     </div>
   );
 }
