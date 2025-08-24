@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import '../assets/AdminDashboard.css';
 import FinancialAnalytics from './FinancialAnalytics';
+import Footer from './Footer';
 
 const AdminDashboard = () => {
   const { token } = useContext(AuthContext);
@@ -43,7 +44,7 @@ const AdminDashboard = () => {
   const [messageType, setMessageType] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [filteredItems, setFilteredItems] = useState([]); // Add this missing state
+  const [filteredItems, setFilteredItems] = useState([]);
 
   const API_BASE_URL = 'https://localhost:7101';
 
@@ -75,7 +76,7 @@ const AdminDashboard = () => {
     if (growth === null || growth === undefined || isNaN(growth)) return <span>N/A</span>;
     const isPositive = growth >= 0;
     return (
-      <span className={`admin-dashboard-growth ${isPositive ? 'positive' : 'negative'}`}>
+      <span className={`growth ${isPositive ? 'positive' : 'negative'}`}>
         {isPositive ? '📈' : '📉'} {Math.abs(growth).toFixed(1)}%
       </span>
     );
@@ -186,7 +187,7 @@ const AdminDashboard = () => {
   };
 
   // Function to fetch items by category
- const fetchItemsByCategory = async (categorieId) => {
+  const fetchItemsByCategory = async (categorieId) => {
     try {
       if (!categorieId) {
         // If no category selected, show all items
@@ -201,7 +202,6 @@ const AdminDashboard = () => {
       setFilteredItems([]);
     }
   };
-
 
   // Handle category change
   const handleCategoryChange = (categorieId) => {
@@ -240,7 +240,7 @@ const AdminDashboard = () => {
   };
 
   // Fetch categories and users for export filters
-    const fetchFilterData = async () => {
+  const fetchFilterData = async () => {
     try {
       console.log('Fetching filter data...');
       
@@ -278,7 +278,7 @@ const AdminDashboard = () => {
   };
 
   // Simplified export function
-const exportToExcel = async () => {
+  const exportToExcel = async () => {
     try {
       setExportLoading(true);
       const queryParams = new URLSearchParams();
@@ -407,75 +407,75 @@ const exportToExcel = async () => {
 
   // Simple chart component for monthly trends
   const MonthlyTrendsChart = ({ data }) => {
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return <p className="admin-dashboard-no-data">Aucune donnée disponible</p>;
-  }
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return <p className="no-data">Aucune donnée disponible</p>;
+    }
 
-  const validData = data.filter(d => d && typeof d.totalSpent === 'number');
-  if (validData.length === 0) {
-    return <p className="admin-dashboard-no-data">Aucune donnée valide disponible</p>;
-  }
+    const validData = data.filter(d => d && typeof d.totalSpent === 'number');
+    if (validData.length === 0) {
+      return <p className="no-data">Aucune donnée valide disponible</p>;
+    }
 
-  // Take the last 6 months and ensure we have meaningful data
-  const chartData = validData.slice(-6);
-  const maxValue = Math.max(...chartData.map(d => d.totalSpent));
-  
-  // Set a minimum scale to ensure bars are visible
-  const minScale = 20; // Minimum percentage for the smallest bar
-  
-      return (
-    <div className="admin-dashboard-chart">
-      <div className="admin-dashboard-chart-bars">
-        {chartData.map((trend, index) => {
-          // Calculate height with minimum scale
-          let heightPercentage = 0;
-          if (maxValue > 0) {
-            heightPercentage = Math.max(
-              minScale, 
-              (trend.totalSpent / maxValue) * 100
+    // Take the last 6 months and ensure we have meaningful data
+    const chartData = validData.slice(-6);
+    const maxValue = Math.max(...chartData.map(d => d.totalSpent));
+    
+    // Set a minimum scale to ensure bars are visible
+    const minScale = 20; // Minimum percentage for the smallest bar
+    
+    return (
+      <div className="chart">
+        <div className="chart-bars">
+          {chartData.map((trend, index) => {
+            // Calculate height with minimum scale
+            let heightPercentage = 0;
+            if (maxValue > 0) {
+              heightPercentage = Math.max(
+                minScale, 
+                (trend.totalSpent / maxValue) * 100
+              );
+            } else {
+              heightPercentage = minScale;
+            }
+
+            return (
+              <div key={index} className="chart-bar-container">
+                <div 
+                  className="chart-bar"
+                  style={{ 
+                    height: `${heightPercentage}%`
+                  }}
+                  title={`${trend.totalDemandes || 0} demandes - ${formatCurrency(trend.totalSpent)}`}
+                />
+                <div className="chart-label">
+                  {trend.year && trend.month ? 
+                    new Date(trend.year, trend.month - 1).toLocaleDateString('fr-FR', { 
+                      month: 'short',
+                      year: '2-digit'
+                    }) :
+                    'N/A'
+                  }
+                </div>
+                <div className="chart-value">
+                  {formatCurrency(trend.totalSpent)}
+                </div>
+              </div>
             );
-          } else {
-            heightPercentage = minScale;
-          }
-
-          return (
-            <div key={index} className="admin-dashboard-chart-bar-container">
-              <div 
-                className="admin-dashboard-chart-bar"
-                style={{ 
-                  height: `${heightPercentage}%`
-                }}
-                title={`${trend.totalDemandes || 0} demandes - ${formatCurrency(trend.totalSpent)}`}
-              />
-              <div className="admin-dashboard-chart-label">
-                {trend.year && trend.month ? 
-                  new Date(trend.year, trend.month - 1).toLocaleDateString('fr-FR', { 
-                    month: 'short',
-                    year: '2-digit'
-                  }) :
-                  'N/A'
-                }
-              </div>
-              <div className="admin-dashboard-chart-value">
-                {formatCurrency(trend.totalSpent)}
-              </div>
-            </div>
-          );
-        })}
+          })}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   // Performance gauge component
-  const PerformanceGauge = ({ value, label, max = 100, color = '#667eea' }) => {
+  const PerformanceGauge = ({ value, label, max = 100, color = '#4f8cff' }) => {
     const safeValue = value && !isNaN(value) ? Number(value) : 0;
     const percentage = Math.min((safeValue / max) * 100, 100);
     
     return (
-      <div className="admin-dashboard-gauge">
-        <div className="admin-dashboard-gauge-container">
-          <svg viewBox="0 0 100 50" className="admin-dashboard-gauge-svg">
+      <div className="gauge">
+        <div className="gauge-container">
+          <svg viewBox="0 0 100 50" className="gauge-svg">
             <path
               d="M 10 45 A 40 40 0 0 1 90 45"
               stroke="#e9ecef"
@@ -491,11 +491,11 @@ const exportToExcel = async () => {
               style={{ transition: 'stroke-dasharray 0.3s ease' }}
             />
           </svg>
-          <div className="admin-dashboard-gauge-value">
+          <div className="gauge-value">
             {safeValue.toFixed(1)}%
           </div>
         </div>
-        <div className="admin-dashboard-gauge-label">{label}</div>
+        <div className="gauge-label">{label}</div>
       </div>
     );
   };
@@ -516,27 +516,34 @@ const exportToExcel = async () => {
 
   if (loading && analytics.totalDemandes === 0) {
     return (
-      <div className="admin-dashboard-container">
-        <div className="admin-dashboard-loading">
-          <div className="spinner"></div>
-          <p>Chargement des données... {retryCount > 0 && `(Tentative ${retryCount + 1})`}</p>
+      <div className="dashboard-container">
+        <div className="dashboard-header">
+          <h1 className="dashboard-title">🔧 Tableau de Bord Administrateur</h1>
+          <p className="dashboard-subtitle">Vue d'ensemble et analytics des demandes système</p>
+        </div>
+        
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Chargement des données... {retryCount > 0 && `(Tentative ${retryCount + 1})`}</p>
           {retryCount >= 2 && (
-            <button onClick={retryFetch} className="retry-button">
+            <button onClick={retryFetch} className="btn btn-primary">
               Réessayer
             </button>
           )}
         </div>
+        
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="admin-dashboard-container">
-      <div className="admin-dashboard-header">
-        <h1>🔧 Tableau de Bord Administrateur</h1>
-        <p>Vue d'ensemble et analytics des demandes système</p>
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h1 className="dashboard-title">🔧 Tableau de Bord Administrateur</h1>
+        <p className="dashboard-subtitle">Vue d'ensemble et analytics des demandes système</p>
         {retryCount >= 2 && (
-          <button onClick={retryFetch} className="retry-button">
+          <button onClick={retryFetch} className="btn btn-primary">
             🔄 Actualiser les données
           </button>
         )}
@@ -544,73 +551,60 @@ const exportToExcel = async () => {
 
       {/* Message Display */}
       {message && (
-        <div className={`admin-dashboard-message ${messageType}`}>
+        <div className={`message ${messageType}`}>
           {message}
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="admin-dashboard-tabs">
+      <div className="tabs-container">
         <button 
-          className={`admin-dashboard-tab ${activeTab === 'overview' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
           📊 Vue d'ensemble
         </button>
         <button 
-          className={`admin-dashboard-tab ${activeTab === 'analytics' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >
           📈 Analytics
         </button>
-
         <button 
-          className={`admin-dashboard-tab ${activeTab === 'financial' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'financial' ? 'active' : ''}`}
           onClick={() => setActiveTab('financial')}
         >
           💰 Finances
         </button>
-
         <button 
-          className={`admin-dashboard-tab ${activeTab === 'insights' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'insights' ? 'active' : ''}`}
           onClick={() => setActiveTab('insights')}
         >
           🔍 Insights
         </button>
         <button 
-          className={`admin-dashboard-tab ${activeTab === 'performance' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'performance' ? 'active' : ''}`}
           onClick={() => setActiveTab('performance')}
         >
           ⚡ Performance
         </button>
         <button 
-          className={`admin-dashboard-tab ${activeTab === 'export' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'export' ? 'active' : ''}`}
           onClick={() => setActiveTab('export')}
         >
           📋 Export
         </button>
       </div>
 
-
-       <div className="admin-dashboard-content">
-        
-        {/* ...existing tabs... */}
-
-        {/* Financial Analytics Tab - Add this after the analytics tab */}
-        {activeTab === 'financial' && <FinancialAnalytics />}
-
-        {/* ...rest of existing tabs... */}
-      </div>
-
       {/* Tab Content */}
-      <div className="admin-dashboard-content">
+      <div className="tab-content">
         
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div className="admin-dashboard-overview">
+          <div className="overview-content">
             {/* Key Metrics */}
-            <div className="admin-dashboard-metrics-grid">
-              <div className="admin-dashboard-metric-card primary">
+            <div className="metrics-grid">
+              <div className="metric-card primary">
                 <div className="metric-icon">📋</div>
                 <div className="metric-content">
                   <h3>Total Demandes</h3>
@@ -623,7 +617,7 @@ const exportToExcel = async () => {
                 </div>
               </div>
 
-              <div className="admin-dashboard-metric-card success">
+              <div className="metric-card success">
                 <div className="metric-icon">💰</div>
                 <div className="metric-content">
                   <h3>Montant Total</h3>
@@ -636,7 +630,7 @@ const exportToExcel = async () => {
                 </div>
               </div>
 
-              <div className="admin-dashboard-metric-card info">
+              <div className="metric-card info">
                 <div className="metric-icon">👥</div>
                 <div className="metric-content">
                   <h3>Utilisateurs Actifs</h3>
@@ -649,7 +643,7 @@ const exportToExcel = async () => {
                 </div>
               </div>
 
-              <div className="admin-dashboard-metric-card warning">
+              <div className="metric-card warning">
                 <div className="metric-icon">⏳</div>
                 <div className="metric-content">
                   <h3>En Attente</h3>
@@ -660,11 +654,11 @@ const exportToExcel = async () => {
             </div>
 
             {/* Status Distribution */}
-            <div className="admin-dashboard-section">
-              <h2>🔄 Distribution des Statuts</h2>
-              <div className="admin-dashboard-status-grid">
+            <div className="form-section">
+              <h2 className="section-title">🔄 Distribution des Statuts</h2>
+              <div className="status-grid">
                 {Object.entries(analytics.demandesParStatut || {}).map(([status, count]) => (
-                  <div key={status} className={`admin-dashboard-status-card status-${status.toLowerCase()}`}>
+                  <div key={status} className={`status-card status-${status.toLowerCase()}`}>
                     <div className="status-header">
                       <span className="status-icon">
                         {status === 'Validee' && '✅'}
@@ -683,12 +677,12 @@ const exportToExcel = async () => {
             </div>
 
             {/* Recent Activity */}
-            <div className="admin-dashboard-section">
-              <h2>🕐 Activité Récente</h2>
-              <div className="admin-dashboard-recent-activity">
+            <div className="form-section">
+              <h2 className="section-title">🕐 Activité Récente</h2>
+              <div className="recent-activity">
                 {analytics.recentDemandes && analytics.recentDemandes.length > 0 ? (
                   analytics.recentDemandes.map((demande, index) => (
-                    <div key={index} className="admin-dashboard-activity-item">
+                    <div key={index} className="activity-item">
                       <div className="activity-icon">
                         <span className={`status-indicator status-${demande.statut?.toLowerCase() || 'unknown'}`}>
                           {demande.statut === 'Validee' && '✅'}
@@ -713,7 +707,7 @@ const exportToExcel = async () => {
                     </div>
                   ))
                 ) : (
-                  <p className="admin-dashboard-no-data">Aucune activité récente</p>
+                  <p className="no-data">Aucune activité récente</p>
                 )}
               </div>
             </div>
@@ -722,26 +716,26 @@ const exportToExcel = async () => {
 
         {/* Analytics Tab */}
         {activeTab === 'analytics' && (
-          <div className="admin-dashboard-analytics">
+          <div className="analytics-content">
             
             {/* Monthly Trends */}
-            <div className="admin-dashboard-section">
-              <h2>📊 Tendances Mensuelles</h2>
-              <div className="admin-dashboard-chart-container">
+            <div className="form-section">
+              <h2 className="section-title">📊 Tendances Mensuelles</h2>
+              <div className="chart-container">
                 <MonthlyTrendsChart data={analytics.monthlyTrends} />
               </div>
             </div>
 
             {/* Top Users and Categories */}
-            <div className="admin-dashboard-two-column">
+            <div className="two-column">
               
               {/* Top Users */}
-              <div className="admin-dashboard-section">
-                <h2>🏆 Top Utilisateurs</h2>
-                <div className="admin-dashboard-top-list">
+              <div className="form-section">
+                <h2 className="section-title">🏆 Top Utilisateurs</h2>
+                <div className="top-list">
                   {analytics.topUsers && analytics.topUsers.length > 0 ? (
                     analytics.topUsers.slice(0, 5).map((user, index) => (
-                      <div key={user.id || index} className="admin-dashboard-top-item">
+                      <div key={user.id || index} className="top-item">
                         <div className="top-item-rank">#{index + 1}</div>
                         <div className="top-item-content">
                           <div className="top-item-header">
@@ -758,18 +752,18 @@ const exportToExcel = async () => {
                       </div>
                     ))
                   ) : (
-                    <p className="admin-dashboard-no-data">Aucune donnée utilisateur</p>
+                    <p className="no-data">Aucune donnée utilisateur</p>
                   )}
                 </div>
               </div>
 
               {/* Top Categories */}
-              <div className="admin-dashboard-section">
-                <h2>📦 Top Catégories</h2>
-                <div className="admin-dashboard-top-list">
+              <div className="form-section">
+                <h2 className="section-title">📦 Top Catégories</h2>
+                <div className="top-list">
                   {analytics.topCategories && analytics.topCategories.length > 0 ? (
                     analytics.topCategories.slice(0, 5).map((category, index) => (
-                      <div key={category.id || index} className="admin-dashboard-top-item">
+                      <div key={category.id || index} className="top-item">
                         <div className="top-item-rank">#{index + 1}</div>
                         <div className="top-item-content">
                           <div className="top-item-header">
@@ -783,22 +777,22 @@ const exportToExcel = async () => {
                       </div>
                     ))
                   ) : (
-                    <p className="admin-dashboard-no-data">Aucune donnée catégorie</p>
+                    <p className="no-data">Aucune donnée catégorie</p>
                   )}
                 </div>
               </div>
             </div>
 
             {/* Top Items */}
-            <div className="admin-dashboard-section">
-              <h2>🎯 Articles les Plus Demandés</h2>
-              <div className="admin-dashboard-items-grid">
+            <div className="form-section">
+              <h2 className="section-title">🎯 Articles les Plus Demandés</h2>
+              <div className="items-grid">
                 {analytics.topItems && analytics.topItems.length > 0 ? (
                   analytics.topItems.slice(0, 6).map((item, index) => (
-                    <div key={item.id || index} className="admin-dashboard-item-card">
+                    <div key={item.id || index} className="admin-item-card">
                       <div className="item-rank">#{index + 1}</div>
-                      <div className="item-content">
-                        <h4 className="item-name">{item.nom || 'N/A'}</h4>
+                      <div className="admin-item-info">
+                        <h4 className="admin-item-name">{item.nom || 'N/A'}</h4>
                         <div className="item-stats">
                           <div className="item-stat">
                             <span className="stat-label">Quantité:</span>
@@ -821,22 +815,25 @@ const exportToExcel = async () => {
                     </div>
                   ))
                 ) : (
-                  <p className="admin-dashboard-no-data">Aucune donnée article</p>
+                  <p className="no-data">Aucune donnée article</p>
                 )}
               </div>
             </div>
           </div>
         )}
 
+        {/* Financial Analytics Tab */}
+        {activeTab === 'financial' && <FinancialAnalytics />}
+
         {/* Insights Tab */}
         {activeTab === 'insights' && (
-          <div className="admin-dashboard-insights">
+          <div className="insights-content">
             {advancedAnalytics ? (
               <>
                 {/* Yearly Comparison */}
-                <div className="admin-dashboard-section">
-                  <h2>📅 Comparaison Annuelle</h2>
-                  <div className="admin-dashboard-yearly-comparison">
+                <div className="form-section">
+                  <h2 className="section-title">📅 Comparaison Annuelle</h2>
+                  <div className="yearly-comparison">
                     {(advancedAnalytics.yearlyComparison || []).map((year, index) => (
                       <div key={index} className="yearly-card">
                         <div className="year-header">
@@ -867,9 +864,9 @@ const exportToExcel = async () => {
 
                 {/* Predictive Insights */}
                 {advancedAnalytics.predictiveInsights && (
-                  <div className="admin-dashboard-section">
-                    <h2>🔮 Prédictions</h2>
-                    <div className="admin-dashboard-predictions">
+                  <div className="form-section">
+                    <h2 className="section-title">🔮 Prédictions</h2>
+                    <div className="predictions">
                       <div className="prediction-card">
                         <h4>📊 Moyenne Mensuelle</h4>
                         <p className="prediction-value">
@@ -894,9 +891,9 @@ const exportToExcel = async () => {
 
                 {/* Financial Insights */}
                 {advancedAnalytics.financialInsights && (
-                  <div className="admin-dashboard-section">
-                    <h2>💡 Insights Financiers</h2>
-                    <div className="admin-dashboard-financial-insights">
+                  <div className="form-section">
+                    <h2 className="section-title">💡 Insights Financiers</h2>
+                    <div className="financial-insights">
                       <div className="insight-card">
                         <h4>💎 Demandes de Haute Valeur</h4>
                         <p className="insight-value">{advancedAnalytics.financialInsights.highValueRequests || 0}</p>
@@ -918,9 +915,9 @@ const exportToExcel = async () => {
 
                 {/* Top Spending Departments */}
                 {advancedAnalytics.financialInsights?.topSpendingDepartments && (
-                  <div className="admin-dashboard-section">
-                    <h2>🏢 Départements</h2>
-                    <div className="admin-dashboard-departments">
+                  <div className="form-section">
+                    <h2 className="section-title">🏢 Départements</h2>
+                    <div className="departments">
                       {advancedAnalytics.financialInsights.topSpendingDepartments.map((dept, index) => (
                         <div key={index} className="department-card">
                           <h4>{dept.department || 'N/A'}</h4>
@@ -935,9 +932,9 @@ const exportToExcel = async () => {
                 )}
               </>
             ) : (
-              <div className="admin-dashboard-loading">
+              <div className="loading-container">
                 <p>Chargement des insights avancés...</p>
-                <button onClick={fetchAdvancedAnalytics} className="retry-button">
+                <button onClick={fetchAdvancedAnalytics} className="btn btn-primary">
                   Réessayer
                 </button>
               </div>
@@ -947,35 +944,35 @@ const exportToExcel = async () => {
 
         {/* Performance Tab */}
         {activeTab === 'performance' && (
-          <div className="admin-dashboard-performance">
+          <div className="performance-content">
             {performanceMetrics ? (
               <>
                 {/* Performance Gauges */}
-                <div className="admin-dashboard-section">
-                  <h2>⚡ Métriques de Performance</h2>
-                  <div className="admin-dashboard-gauges">
+                <div className="form-section">
+                  <h2 className="section-title">⚡ Métriques de Performance</h2>
+                  <div className="gauges">
                     <PerformanceGauge 
                       value={performanceMetrics.approvalRate} 
                       label="Taux d'Approbation" 
-                      color="#28a745" 
+                      color="#10b981" 
                     />
                     <PerformanceGauge 
                       value={100 - (performanceMetrics.rejectionRate || 0)} 
                       label="Taux de Succès" 
-                      color="#007bff" 
+                      color="#4f8cff" 
                     />
                     <PerformanceGauge 
                       value={Math.max(0, 100 - (performanceMetrics.avgProcessingTime || 0) * 10)} 
                       label="Rapidité de Traitement" 
-                      color="#ffc107" 
+                      color="#f59e0b" 
                     />
                   </div>
                 </div>
 
                 {/* Performance Stats */}
-                <div className="admin-dashboard-section">
-                  <h2>📈 Statistiques de Performance</h2>
-                  <div className="admin-dashboard-performance-stats">
+                <div className="form-section">
+                  <h2 className="section-title">📈 Statistiques de Performance</h2>
+                  <div className="performance-stats">
                     <div className="performance-stat">
                       <h4>⏱️ Temps de Traitement Moyen</h4>
                       <p className="stat-value">{(performanceMetrics.avgProcessingTime || 0).toFixed(1)} jours</p>
@@ -996,9 +993,9 @@ const exportToExcel = async () => {
                 </div>
 
                 {/* Weekly Comparison */}
-                <div className="admin-dashboard-section">
-                  <h2>📊 Comparaison Hebdomadaire</h2>
-                  <div className="admin-dashboard-weekly-comparison">
+                <div className="form-section">
+                  <h2 className="section-title">📊 Comparaison Hebdomadaire</h2>
+                  <div className="weekly-comparison">
                     {(performanceMetrics.weeklyComparison || []).map((week, index) => (
                       <div key={index} className="weekly-card">
                         <h4>{week.period === 'This Week' ? 'Cette Semaine' : 'Semaine Dernière'}</h4>
@@ -1019,9 +1016,9 @@ const exportToExcel = async () => {
 
                 {/* System Health */}
                 {performanceMetrics.systemHealth && (
-                  <div className="admin-dashboard-section">
-                    <h2>🔧 Santé du Système</h2>
-                    <div className="admin-dashboard-system-health">
+                  <div className="form-section">
+                    <h2 className="section-title">🔧 Santé du Système</h2>
+                    <div className="system-health">
                       <div className="health-metric">
                         <h4>👥 Utilisateurs Totaux</h4>
                         <p>{performanceMetrics.systemHealth.totalUsers || 0}</p>
@@ -1043,9 +1040,9 @@ const exportToExcel = async () => {
                 )}
               </>
             ) : (
-              <div className="admin-dashboard-loading">
+              <div className="loading-container">
                 <p>Chargement des métriques de performance...</p>
-                <button onClick={fetchPerformanceMetrics} className="retry-button">
+                <button onClick={fetchPerformanceMetrics} className="btn btn-primary">
                   Réessayer
                 </button>
               </div>
@@ -1055,20 +1052,20 @@ const exportToExcel = async () => {
 
          {/* Export Tab */}
         {activeTab === 'export' && (
-          <div className="admin-dashboard-export">
-            <div className="admin-dashboard-section">
-              <h2>📋 Export des Données</h2>
+          <div className="export-content">
+            <div className="form-section">
+              <h2 className="section-title">📋 Export des Données</h2>
               <p>Exportez les données des demandes au format CSV pour analyse externe.</p>
               
               {/* Export Filters */}
-              <div className="admin-dashboard-export-filters">
-                <div className="filter-group">
-                  <label htmlFor="categoryFilter">Filtrer par Catégorie:</label>
+              <div className="export-filters">
+                <div className="form-group">
+                  <label htmlFor="categoryFilter" className="form-label">Filtrer par Catégorie:</label>
                   <select
                     id="categoryFilter"
                     value={exportFilters.categorieId}
                     onChange={(e) => handleCategoryChange(e.target.value)}
-                    className="admin-dashboard-select"
+                    className="form-select"
                   >
                     <option value="">Toutes les catégories</option>
                     {categories.map(category => (
@@ -1079,8 +1076,8 @@ const exportToExcel = async () => {
                   </select>
                 </div>
 
-                <div className="filter-group">
-                  <label htmlFor="userFilter">Filtrer par Utilisateur:</label>
+                <div className="form-group">
+                  <label htmlFor="userFilter" className="form-label">Filtrer par Utilisateur:</label>
                   <select
                     id="userFilter"
                     value={exportFilters.utilisateurId}
@@ -1088,7 +1085,7 @@ const exportToExcel = async () => {
                       ...prev,
                       utilisateurId: e.target.value
                     }))}
-                    className="admin-dashboard-select"
+                    className="form-select"
                   >
                     <option value="">Tous les utilisateurs</option>
                     {users.map(user => (
@@ -1099,8 +1096,8 @@ const exportToExcel = async () => {
                   </select>
                 </div>
 
-                <div className="filter-group">
-                  <label htmlFor="itemFilter">Filtrer par Article:</label>
+                <div className="form-group">
+                  <label htmlFor="itemFilter" className="form-label">Filtrer par Article:</label>
                   <select
                     id="itemFilter"
                     value={exportFilters.itemId}
@@ -1108,7 +1105,7 @@ const exportToExcel = async () => {
                       ...prev,
                       itemId: e.target.value
                     }))}
-                    className="admin-dashboard-select"
+                    className="form-select"
                     disabled={!exportFilters.categorieId && filteredItems.length === 0}
                   >
                     <option value="">
@@ -1127,7 +1124,7 @@ const exportToExcel = async () => {
 
               {/* Filter Summary */}
               {(exportFilters.categorieId || exportFilters.utilisateurId || exportFilters.itemId) && (
-                <div className="admin-dashboard-filter-summary">
+                <div className="filter-summary">
                   <h4>🔍 Filtres Appliqués:</h4>
                   <div className="filter-tags">
                     {exportFilters.categorieId && (
@@ -1150,15 +1147,15 @@ const exportToExcel = async () => {
               )}
 
               {/* Export Button */}
-              <div className="admin-dashboard-export-actions">
+              <div className="export-actions">
                 <button
                   onClick={exportToExcel}
                   disabled={exportLoading}
-                  className="admin-dashboard-export-button"
+                  className="btn btn-primary export-button"
                 >
                   {exportLoading ? (
                     <>
-                      <span className="spinner-small"></span>
+                      <span className="loading-spinner-small"></span>
                       Export en cours...
                     </>
                   ) : (
@@ -1170,7 +1167,7 @@ const exportToExcel = async () => {
               </div>
 
               {/* Export Info */}
-              <div className="admin-dashboard-export-info">
+              <div className="export-info">
                 <h4>ℹ️ Informations sur l'Export</h4>
                 <ul>
                   <li>Le fichier sera téléchargé au format CSV</li>
@@ -1185,8 +1182,10 @@ const exportToExcel = async () => {
           </div>
         )}
 
-
       </div>
+
+      {/* Footer Component */}
+      <Footer />
     </div>
   );
 };
