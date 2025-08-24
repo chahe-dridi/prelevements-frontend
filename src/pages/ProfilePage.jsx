@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
+import Footer from '../components/Footer';
 import '../assets/ProfilePage.css';
 
 function ProfilePage() {
@@ -16,8 +17,18 @@ function ProfilePage() {
     });
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState("");
+    const [messageType, setMessageType] = useState("");
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [pendingUpdate, setPendingUpdate] = useState(null);
+
+    const showMessage = (msg, type = 'info') => {
+        setMessage(msg);
+        setMessageType(type);
+        setTimeout(() => {
+            setMessage("");
+            setMessageType("");
+        }, 5000);
+    };
 
     useEffect(() => {
         if (!token) return;
@@ -39,7 +50,7 @@ function ProfilePage() {
             })
             .catch(err => {
                 console.error(err);
-                setMessage("Error: Failed to load profile");
+                showMessage("Erreur lors du chargement du profil", "error");
                 setLoading(false);
             });
     }, [token]);
@@ -88,16 +99,14 @@ function ProfilePage() {
                 return res.text();
             })
             .then(() => {
-                setMessage("Profil mis à jour avec succès!");
-                setTimeout(() => setMessage(""), 3000);
+                showMessage("Profil mis à jour avec succès!", "success");
             })
-            .catch(err => setMessage("Error: " + err.message));
+            .catch(err => showMessage("Erreur lors de la mise à jour du profil", "error"));
     };
 
     const updatePassword = (data) => {
         setMessage("");
 
-        // Use the dedicated password endpoint
         fetch("https://localhost:7101/api/Users/password", {
             method: "PUT",
             headers: {
@@ -118,11 +127,10 @@ function ProfilePage() {
                 return res.json();
             })
             .then((response) => {
-                setMessage(response.message || "Mot de passe mis à jour avec succès!");
+                showMessage(response.message || "Mot de passe mis à jour avec succès!", "success");
                 setPasswordData({ password: "", confirmPassword: "" });
-                setTimeout(() => setMessage(""), 3000);
             })
-            .catch(err => setMessage("Erreur: " + err.message));
+            .catch(err => showMessage("Erreur lors de la mise à jour du mot de passe", "error"));
     };
 
     const handleProfileSubmit = e => {
@@ -134,12 +142,12 @@ function ProfilePage() {
         e.preventDefault();
         
         if (passwordData.password !== passwordData.confirmPassword) {
-            setMessage("Erreur: Les mots de passe ne correspondent pas");
+            showMessage("Les mots de passe ne correspondent pas", "error");
             return;
         }
         
         if (passwordData.password.length < 6) {
-            setMessage("Erreur: Le mot de passe doit contenir au moins 6 caractères");
+            showMessage("Le mot de passe doit contenir au moins 6 caractères", "error");
             return;
         }
 
@@ -149,8 +157,9 @@ function ProfilePage() {
     if (loading) {
         return (
             <div className="profile-page-container">
-                <div className="loading-text">
-                    🔄 Chargement du profil...
+                <div className="profile-loading">
+                    <div className="loading-spinner"></div>
+                    <p>Chargement du profil...</p>
                 </div>
             </div>
         );
@@ -158,135 +167,216 @@ function ProfilePage() {
 
     return (
         <div className="profile-page-container">
-            <div className="profile-card">
-                <h2 className="profile-title">Mon Profil</h2>
-                
-                {/* Tab Navigation */}
-                <div className="section-tabs">
-                    <button 
-                        className={`tab-button ${activeTab === "profile" ? "active" : ""}`}
-                        onClick={() => setActiveTab("profile")}
-                    >
-                        👤 Informations
-                    </button>
-                    <button 
-                        className={`tab-button ${activeTab === "password" ? "active" : ""}`}
-                        onClick={() => setActiveTab("password")}
-                    >
-                        🔒 Mot de passe
-                    </button>
-                </div>
+            {/* Header */}
+            <div className="profile-header">
+                <h1 className="profile-main-title">👤 Mon Profil</h1>
+                <p className="profile-subtitle">
+                    Gérez vos informations personnelles et paramètres de sécurité
+                </p>
+            </div>
 
-                {/* Message Display */}
-                {message && (
-                    <div className={`message ${message.startsWith("Error") || message.startsWith("Erreur") ? "error" : "success"}`}>
-                        {message}
+            {/* Main Content */}
+            <div className="profile-content">
+                <div className="profile-card">
+                    {/* User Info Header */}
+                    <div className="user-info-header">
+                        <div className="user-avatar">
+                            <span className="avatar-icon">👤</span>
+                        </div>
+                        <div className="user-details">
+                            <h2 className="user-name">
+                                {profileData.prenom} {profileData.nom}
+                            </h2>
+                            <p className="user-email">{profileData.email}</p>
+                        </div>
                     </div>
-                )}
 
-                {/* Profile Information Tab */}
-                {activeTab === "profile" && (
-                    <form onSubmit={handleProfileSubmit}>
-                        <div className="form-group">
-                            <label className="form-label">Nom:</label>
-                            <input
-                                type="text"
-                                name="nom"
-                                value={profileData.nom}
-                                onChange={handleProfileChange}
-                                className="form-input"
-                                required
-                            />
-                        </div>
-                        
-                        <div className="form-group">
-                            <label className="form-label">Prénom:</label>
-                            <input
-                                type="text"
-                                name="prenom"
-                                value={profileData.prenom}
-                                onChange={handleProfileChange}
-                                className="form-input"
-                                required
-                            />
-                        </div>
-                        
-                        <div className="form-group">
-                            <label className="form-label">Email:</label>
-                            <input
-                                type="email"
-                                name="email"
-                                value={profileData.email}
-                                onChange={handleProfileChange}
-                                className="form-input"
-                                required
-                            />
-                        </div>
-                        
-                        <button type="submit" className="btn btn-primary">
-                            💾 Mettre à jour le profil
+                    {/* Tab Navigation */}
+                    <div className="section-tabs">
+                        <button 
+                            className={`tab-button ${activeTab === "profile" ? "active" : ""}`}
+                            onClick={() => setActiveTab("profile")}
+                        >
+                            <span className="tab-icon">📝</span>
+                            Informations personnelles
                         </button>
-                    </form>
-                )}
+                        <button 
+                            className={`tab-button ${activeTab === "password" ? "active" : ""}`}
+                            onClick={() => setActiveTab("password")}
+                        >
+                            <span className="tab-icon">🔒</span>
+                            Sécurité
+                        </button>
+                    </div>
 
-                {/* Password Tab */}
-                {activeTab === "password" && (
-                    <form onSubmit={handlePasswordSubmit}>
-                        <div className="form-group">
-                            <label className="form-label">Nouveau mot de passe:</label>
-                            <input
-                                type="password"
-                                name="password"
-                                value={passwordData.password}
-                                onChange={handlePasswordChange}
-                                className="form-input"
-                                placeholder="Minimum 6 caractères"
-                                required
-                            />
+                    {/* Message Display */}
+                    {message && (
+                        <div className={`profile-message ${messageType}`}>
+                            <span className="message-icon">
+                                {messageType === 'success' ? '✅' : '❌'}
+                            </span>
+                            {message}
                         </div>
-                        
-                        <div className="form-group">
-                            <label className="form-label">Confirmer le mot de passe:</label>
-                            <input
-                                type="password"
-                                name="confirmPassword"
-                                value={passwordData.confirmPassword}
-                                onChange={handlePasswordChange}
-                                className="form-input"
-                                placeholder="Répétez le mot de passe"
-                                required
-                            />
-                        </div>
-                        
-                        <button type="submit" className="btn btn-secondary">
-                            🔒 Changer le mot de passe
-                        </button>
-                    </form>
-                )}
+                    )}
+
+                    {/* Tab Content */}
+                    <div className="tab-content">
+                        {/* Profile Information Tab */}
+                        {activeTab === "profile" && (
+                            <div className="tab-panel">
+                                <div className="panel-header">
+                                    <h3>📝 Informations personnelles</h3>
+                                    <p>Modifiez vos informations de base</p>
+                                </div>
+                                
+                                <form onSubmit={handleProfileSubmit} className="profile-form">
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">
+                                                <span className="label-icon">👤</span>
+                                                Nom
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="nom"
+                                                value={profileData.nom}
+                                                onChange={handleProfileChange}
+                                                className="form-input"
+                                                placeholder="Votre nom"
+                                                required
+                                            />
+                                        </div>
+                                        
+                                        <div className="form-group">
+                                            <label className="form-label">
+                                                <span className="label-icon">👤</span>
+                                                Prénom
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="prenom"
+                                                value={profileData.prenom}
+                                                onChange={handleProfileChange}
+                                                className="form-input"
+                                                placeholder="Votre prénom"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            <span className="label-icon">📧</span>
+                                            Adresse email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={profileData.email}
+                                            onChange={handleProfileChange}
+                                            className="form-input"
+                                            placeholder="votre.email@exemple.com"
+                                            required
+                                        />
+                                    </div>
+                                    
+                                    <button type="submit" className="btn btn-primary">
+                                        <span className="btn-icon">💾</span>
+                                        Mettre à jour le profil
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Password Tab */}
+                        {activeTab === "password" && (
+                            <div className="tab-panel">
+                                <div className="panel-header">
+                                    <h3>🔒 Sécurité du compte</h3>
+                                    <p>Modifiez votre mot de passe pour sécuriser votre compte</p>
+                                </div>
+                                
+                                <form onSubmit={handlePasswordSubmit} className="profile-form">
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            <span className="label-icon">🔑</span>
+                                            Nouveau mot de passe
+                                        </label>
+                                        <input
+                                            type="password"
+                                            name="password"
+                                            value={passwordData.password}
+                                            onChange={handlePasswordChange}
+                                            className="form-input"
+                                            placeholder="Minimum 6 caractères"
+                                            required
+                                        />
+                                        <small className="form-hint">
+                                            Le mot de passe doit contenir au moins 6 caractères
+                                        </small>
+                                    </div>
+                                    
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            <span className="label-icon">🔑</span>
+                                            Confirmer le mot de passe
+                                        </label>
+                                        <input
+                                            type="password"
+                                            name="confirmPassword"
+                                            value={passwordData.confirmPassword}
+                                            onChange={handlePasswordChange}
+                                            className="form-input"
+                                            placeholder="Répétez le mot de passe"
+                                            required
+                                        />
+                                    </div>
+                                    
+                                    <button type="submit" className="btn btn-secondary">
+                                        <span className="btn-icon">🔒</span>
+                                        Changer le mot de passe
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Confirmation Dialog */}
             {showConfirmation && (
                 <div className="confirmation-overlay">
                     <div className="confirmation-dialog">
-                        <h3 className="confirmation-title">Confirmer la modification</h3>
-                        <p className="confirmation-message">
-                            {pendingUpdate?.type === "profile" 
-                                ? "Êtes-vous sûr de vouloir mettre à jour vos informations personnelles ?"
-                                : "Êtes-vous sûr de vouloir changer votre mot de passe ?"
-                            }
-                        </p>
-                        <div className="confirmation-buttons">
+                        <div className="confirmation-header">
+                            <h3 className="confirmation-title">
+                                <span className="confirmation-icon">⚠️</span>
+                                Confirmer la modification
+                            </h3>
+                        </div>
+                        <div className="confirmation-content">
+                            <p className="confirmation-message">
+                                {pendingUpdate?.type === "profile" 
+                                    ? "Êtes-vous sûr de vouloir mettre à jour vos informations personnelles ?"
+                                    : "Êtes-vous sûr de vouloir changer votre mot de passe ?"
+                                }
+                            </p>
+                        </div>
+                        <div className="confirmation-actions">
                             <button className="btn-confirm cancel" onClick={handleCancel}>
+                                <span className="btn-icon">❌</span>
                                 Annuler
                             </button>
                             <button className="btn-confirm confirm" onClick={handleConfirm}>
+                                <span className="btn-icon">✅</span>
                                 Confirmer
                             </button>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Footer */}
+            <Footer />
         </div>
     );
 }
