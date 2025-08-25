@@ -1,3 +1,28 @@
+/* Responsive logo styles for Navbar */
+.navbar-logo-container {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    margin-right: 1rem;
+}
+
+.navbar-logo {
+    height: 40px;
+    width: auto;
+    max-width: 120px;
+    object-fit: contain;
+    transition: height 0.2s, width 0.2s;
+}
+
+@media (max-width: 600px) {
+    .navbar-logo {
+        height: 28px;
+        max-width: 80px;
+    }
+    .navbar-logo-container {
+        margin-right: 0.5rem;
+    }
+}
 .navbar {
     display: flex;
     align-items: center;

@@ -2,6 +2,7 @@ import React, { useContext, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import '../assets/Navbar.css';
+import logo from '../assets/images/Logo_Banque_de_Tunisie.png';
 
 function Navbar() {
     const { userRole, userEmail, logout } = useContext(AuthContext);
@@ -149,6 +150,11 @@ function Navbar() {
 
     return (
         <nav className={`navbar ${getNavbarClass(userRole)}`}>
+            <div className="navbar-logo-container">
+                <Link to="/">
+                    <img src={logo} alt="Banque de Tunisie Logo" className="navbar-logo" />
+                </Link>
+            </div>
             {renderNavigationLinks()}
         </nav>
     );
