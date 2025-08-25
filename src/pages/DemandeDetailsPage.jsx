@@ -50,7 +50,7 @@ export default function DemandeDetailsPage() {
     );
   }, [userSearchTerm, favoredUsers]);
 
-  // Load favored users on component mount
+  /*// Load favored users on component mount
   useEffect(() => {
     const loadFavoredUsers = async () => {
       try {
@@ -79,6 +79,31 @@ export default function DemandeDetailsPage() {
 
     loadFavoredUsers();
   }, [token]);
+*/
+
+  useEffect(() => {
+    const loadFavoredUsers = async () => {
+      try {
+        const response = await fetch('https://localhost:7101/api/Users/favored', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const users = await response.json();
+          setFavoredUsers(users);
+
+          // Do NOT select any user by default
+          // Remove default selection logic here
+        }
+      } catch (error) {
+        console.error('Error loading favored users:', error);
+      }
+    };
+
+    loadFavoredUsers();
+  }, [token]);
+
+
 
   // Handle user selection from dropdown
   const handleUserSelect = useCallback((user) => {
@@ -250,7 +275,7 @@ export default function DemandeDetailsPage() {
     return demande?.statut?.toLowerCase() === 'validee';
   };
 
-  // Auto-generate amount in letters when demande is loaded or prices change
+/*  // Auto-generate amount in letters when demande is loaded or prices change
   useEffect(() => {
     if (demande) {
       const total = calculateTotal();
@@ -277,6 +302,35 @@ export default function DemandeDetailsPage() {
       }
     }
   }, [demande, calculateTotal, favoredUsers]);
+*/
+
+
+useEffect(() => {
+    if (demande) {
+      const total = calculateTotal();
+      const amountInFrench = convertAmountToFrench(total);
+
+      // Do NOT set default effectuePar if not already set
+      let defaultEffectuePar = demande.paiement?.effectuePar || "";
+      // Remove logic that sets effectuePar to a user if not present
+
+      setPaymentInfo(prev => ({
+        ...prev,
+        montantEnLettres: demande.paiement?.montantEnLettres || amountInFrench,
+        effectuePar: defaultEffectuePar,
+        statut: demande.statut || ""
+      }));
+
+      // Only set search term if there's existing payment data
+      if (demande.paiement?.effectuePar) {
+        setUserSearchTerm(demande.paiement.effectuePar);
+      } else {
+        setUserSearchTerm(""); // Ensure input is empty if no effectuePar
+        setSelectedUserId(null);
+      }
+    }
+  }, [demande, calculateTotal, favoredUsers]);
+
 
   // Reset payment fields when status changes
   useEffect(() => {
