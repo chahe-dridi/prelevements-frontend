@@ -4,7 +4,7 @@ import Footer from '../components/Footer';
 import '../assets/ProfilePage.css';
 
 function ProfilePage() {
-    const { token, userEmail } = useContext(AuthContext);
+    const { token  } = useContext(AuthContext);
     const [activeTab, setActiveTab] = useState("profile");
     const [profileData, setProfileData] = useState({
         nom: "",

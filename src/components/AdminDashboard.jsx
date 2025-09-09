@@ -512,7 +512,16 @@ const AdminDashboard = () => {
     } else {
       console.log('No token available');
     }
-  }, [token]);
+  }, [
+      token,
+      fetchAnalytics,
+      fetchFilterData,
+      fetchSummary,
+      fetchAdvancedAnalytics,
+      fetchPerformanceMetrics
+
+
+  ]);
 
   if (loading && analytics.totalDemandes === 0) {
     return (

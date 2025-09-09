@@ -6,7 +6,7 @@ import Footer from '../components/Footer';
 
 
 const DemandeHistoryPage = () => {
-  const { token, userEmail } = useContext(AuthContext);
+  const { token  } = useContext(AuthContext);
   
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -195,7 +195,7 @@ const DemandeHistoryPage = () => {
       setLoading(false);
       showMessage('Token d\'authentification manquant', 'error');
     }
-  }, [token]); // Only depend on token
+  }, [token, fetchCategories, fetchDemandes]); // Only depend on token
 
   // Pagination handlers
   const handlePageChange = (newPage) => {

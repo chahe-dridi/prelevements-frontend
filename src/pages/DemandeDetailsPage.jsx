@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+//import autoTable from 'jspdf-autotable';
 import { convertAmountToFrench } from '../utils/numberToFrench';
 import '../assets/DemandeDetailsPage.css';
 import Footer from '../components/Footer';
@@ -345,11 +345,11 @@ useEffect(() => {
     }
   }, [paymentInfo.statut, calculateTotal]);
 
-  const formatDateOnly = (dateStr) => {
-    if (!dateStr) return "Non renseignée";
-    const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? "Format de date invalide" : d.toLocaleDateString("fr-FR");
-  };
+//  const formatDateOnly = (dateStr) => {
+//    if (!dateStr) return "Non renseignée";
+//    const d = new Date(dateStr);
+//    return isNaN(d.getTime()) ? "Format de date invalide" : d.toLocaleDateString("fr-FR");
+//  };
 
   const formatDateOnlyShortYear = (dateStr) => {
     if (!dateStr) return "Non renseignée";
