@@ -141,7 +141,7 @@ const FinancialAnalytics = () => {
       fetchCategories();
       fetchFinancialAnalytics();
     }
-  }, [token, fetchCategories, fetchFinancialAnalytics]);
+  }, [token]);
 
   if (loading) {
     return (

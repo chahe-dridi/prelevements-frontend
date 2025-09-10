@@ -90,7 +90,7 @@ const UsersAdmin = () => {
         throw new Error(errorMessage);
       }
 
-      //const result = await response.json();
+      const result = await response.json();
 
       // Update the user in the state
       setUsers(prev =>
@@ -174,7 +174,7 @@ const UsersAdmin = () => {
              role.includes(searchTermLower) ||
              faveurText.includes(searchTermLower);
     });
-  }, [users, searchTerm, convertRoleToString]);
+  }, [users, searchTerm]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -225,9 +225,9 @@ const UsersAdmin = () => {
     setMessage('');
   };
 
-  //const closeRoleConfirmModal = () => {
- //   setShowRoleConfirmModal(false);
-  //};
+  const closeRoleConfirmModal = () => {
+    setShowRoleConfirmModal(false);
+  };
 
   const handleDeleteUser = async (userId) => {
     const user = users.find(u => u.id === userId);
